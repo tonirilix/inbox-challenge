@@ -27,6 +27,8 @@ export const itemEnvelopeSchema = z.object({
   outcome: outcomeSchema.nullable(),
   requester: z.string(),
   createdAt: z.iso.datetime(),
+  /** When the item last changed status; orders the Failed and Completed views. */
+  updatedAt: z.iso.datetime(),
   dueDate: z.iso.date().nullable(),
   lastAttempt: attemptSchema.nullable(),
   failureReason: z.string().nullable(),
@@ -54,3 +56,10 @@ export type ExpenseItem = z.infer<typeof expenseItemSchema>;
 
 export const listItemsResponseSchema = z.object({ items: z.array(itemSchema) });
 export type ListItemsResponse = z.infer<typeof listItemsResponseSchema>;
+
+export const itemCountsSchema = z.record(statusSchema, z.number().int().nonnegative());
+export const countsResponseSchema = z.object({ counts: itemCountsSchema });
+export type ItemCounts = z.infer<typeof itemCountsSchema>;
+export type CountsResponse = z.infer<typeof countsResponseSchema>;
+
+export const listItemsQuerySchema = z.object({ status: statusSchema });

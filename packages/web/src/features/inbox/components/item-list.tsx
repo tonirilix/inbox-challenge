@@ -1,9 +1,10 @@
+import type { Status } from '@inbox/contracts';
 import { Button } from '@/shared/ui/button';
 import { useItems } from '../hooks/use-items';
 import { ItemRow } from './item-row';
 
-export function ItemList() {
-  const { data: items, isPending, isError, refetch } = useItems();
+export function ItemList({ status }: { status: Status }) {
+  const { data: items, isPending, isError, refetch } = useItems(status);
 
   if (isPending) return <p role="status">Loading items…</p>;
 
