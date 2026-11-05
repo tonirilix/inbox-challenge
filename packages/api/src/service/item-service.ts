@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import {
   actionRequestSchema,
+  createItemRequestSchema,
   actionSchemas,
   isRecoveryAction,
   statuses,
@@ -8,11 +10,11 @@ import {
   type ItemCounts,
   type ListItemsQuery,
   type Status,
-} from '@inbox/contracts';
-import type { EventPublisher } from '../events/event-publisher';
-import type { Executor } from '../executor/executor';
-import type { ItemRepository } from '../repository/item-repository';
-import { orderForView } from './order-items';
+} from "@inbox/contracts";
+import type { EventPublisher } from "../events/event-publisher";
+import type { Executor } from "../executor/executor";
+import type { ItemRepository } from "../repository/item-repository";
+import { orderForView } from "./order-items";
 
 export class ItemService {
   constructor(
@@ -28,7 +30,9 @@ export class ItemService {
   /** Counts per status. Deliberately takes no filters (spec: counts ignore filters). */
   async countItems(): Promise<ItemCounts> {
     const items = await this.repository.list();
-    const counts = Object.fromEntries(statuses.map((s) => [s, 0])) as ItemCounts;
+    const counts = Object.fromEntries(
+      statuses.map((s) => [s, 0]),
+    ) as ItemCounts;
     for (const item of items) counts[item.status] += 1;
     return counts;
   }
@@ -48,16 +52,19 @@ export class ItemService {
     const item = await this.getItem(id);
     const envelope = actionRequestSchema.safeParse(body);
     const recovery =
-      item.status === 'failed' && envelope.success && isRecoveryAction(envelope.data.action)
+      item.status === "failed" &&
+      envelope.success &&
+      isRecoveryAction(envelope.data.action)
         ? envelope.data.action
         : undefined;
-    if (item.status !== 'pending' && !recovery) throw new ItemNotActionableError(item.status);
+    if (item.status !== "pending" && !recovery)
+      throw new ItemNotActionableError(item.status);
 
-    if (recovery === 'dismiss') {
+    if (recovery === "dismiss") {
       return this.save({
         ...item,
-        status: 'completed',
-        outcome: 'dismissed',
+        status: "completed",
+        outcome: "dismissed",
         failureReason: null,
       });
     }
@@ -67,8 +74,13 @@ export class ItemService {
       if (!item.lastAttempt) throw new ItemNotActionableError(item.status);
       attempt = item.lastAttempt;
     } else {
-      const typed = envelope.success ? actionSchemas[item.type].safeParse(envelope.data) : envelope;
-      if (!typed.success) throw new InvalidActionError(typed.error.issues[0]?.message ?? 'Invalid action');
+      const typed = envelope.success
+        ? actionSchemas[item.type].safeParse(envelope.data)
+        : envelope;
+      if (!typed.success)
+        throw new InvalidActionError(
+          typed.error.issues[0]?.message ?? "Invalid action",
+        );
       attempt = {
         action: typed.data.action,
         input: typed.data.input,
@@ -78,11 +90,36 @@ export class ItemService {
     const result = await this.executor.execute(item, attempt);
     return this.save({
       ...item,
-      status: result.ok ? 'completed' : 'failed',
+      status: result.ok ? "completed" : "failed",
       outcome: result.ok ? result.outcome : null,
       failureReason: result.ok ? null : result.reason,
       lastAttempt: attempt,
     });
+  }
+
+  /** Raises a pending item from an intake request validated against its type's contract. */
+  async createItem(body: unknown): Promise<Item> {
+    const request = createItemRequestSchema.safeParse(body);
+    if (!request.success)
+      throw new InvalidItemError(
+        request.error.issues
+          .map((i) => `${i.path.join(".") || "body"}: ${i.message}`)
+          .join("; "),
+      );
+    const now = new Date().toISOString();
+    const item = {
+      ...request.data,
+      id: randomUUID(),
+      status: "pending",
+      outcome: null,
+      createdAt: now,
+      updatedAt: now,
+      lastAttempt: null,
+      failureReason: null,
+    } as Item;
+    await this.repository.save(item);
+    await this.events.publish({ type: "item.created", item });
+    return item;
   }
 
   /** Stamps the transition, persists it and publishes the matching event. */
@@ -90,7 +127,7 @@ export class ItemService {
     const saved: Item = { ...updated, updatedAt: new Date().toISOString() };
     await this.repository.save(saved);
     await this.events.publish({
-      type: saved.status === 'completed' ? 'item.completed' : 'item.failed',
+      type: saved.status === "completed" ? "item.completed" : "item.failed",
       item: saved,
     });
     return saved;
@@ -111,3 +148,6 @@ export class ItemNotActionableError extends Error {
 }
 
 export class InvalidActionError extends Error {}
+
+/** An intake request that doesn't match the contract of its type. */
+export class InvalidItemError extends Error {}

@@ -1,8 +1,13 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-export const priorities = ['urgent', 'high', 'normal', 'low'] as const;
-export const statuses = ['pending', 'processing', 'completed', 'failed'] as const;
-export const outcomes = ['approved', 'rejected', 'done', 'dismissed'] as const;
+export const priorities = ["urgent", "high", "normal", "low"] as const;
+export const statuses = [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+] as const;
+export const outcomes = ["approved", "rejected", "done", "dismissed"] as const;
 
 export const prioritySchema = z.enum(priorities);
 export const statusSchema = z.enum(statuses);
@@ -39,7 +44,7 @@ export const itemEnvelopeSchema = z.object({
  * To add a type, define its schema here and add it to `itemSchema` below (ADR 0002).
  */
 export const expenseItemSchema = itemEnvelopeSchema.extend({
-  type: z.literal('expense'),
+  type: z.literal("expense"),
   payload: z.object({
     merchant: z.string(),
     category: z.string(),
@@ -49,16 +54,16 @@ export const expenseItemSchema = itemEnvelopeSchema.extend({
 });
 
 export const deploymentItemSchema = itemEnvelopeSchema.extend({
-  type: z.literal('deployment'),
+  type: z.literal("deployment"),
   payload: z.object({
     service: z.string(),
-    environment: z.enum(['production', 'staging']),
+    environment: z.enum(["production", "staging"]),
     version: z.string(),
   }),
 });
 
 export const documentationItemSchema = itemEnvelopeSchema.extend({
-  type: z.literal('documentation'),
+  type: z.literal("documentation"),
   payload: z.object({
     /** What needs documenting. */
     topic: z.string(),
@@ -66,32 +71,58 @@ export const documentationItemSchema = itemEnvelopeSchema.extend({
   }),
 });
 
-export const itemSchema = z.discriminatedUnion('type', [
+export const itemSchema = z.discriminatedUnion("type", [
   expenseItemSchema,
   deploymentItemSchema,
   documentationItemSchema,
 ]);
 
 export type Item = z.infer<typeof itemSchema>;
-export type ItemType = Item['type'];
+export type ItemType = Item["type"];
 export type ExpenseItem = z.infer<typeof expenseItemSchema>;
 export type DeploymentItem = z.infer<typeof deploymentItemSchema>;
 export type DocumentationItem = z.infer<typeof documentationItemSchema>;
 
+/** What another system sends to raise an item; the server assigns the rest. */
+const intakeFields = {
+  type: true,
+  title: true,
+  priority: true,
+  requester: true,
+  payload: true,
+} as const;
+const intakeDueDate = {
+  dueDate: itemEnvelopeSchema.shape.dueDate.default(null),
+};
+export const createItemRequestSchema = z.discriminatedUnion("type", [
+  expenseItemSchema.pick(intakeFields).extend(intakeDueDate),
+  deploymentItemSchema.pick(intakeFields).extend(intakeDueDate),
+  documentationItemSchema.pick(intakeFields).extend(intakeDueDate),
+]);
+export type CreateItemRequest = z.infer<typeof createItemRequestSchema>;
+
 export const listItemsResponseSchema = z.object({ items: z.array(itemSchema) });
 export type ListItemsResponse = z.infer<typeof listItemsResponseSchema>;
 
-export const itemCountsSchema = z.record(statusSchema, z.number().int().nonnegative());
+export const itemCountsSchema = z.record(
+  statusSchema,
+  z.number().int().nonnegative(),
+);
 export const countsResponseSchema = z.object({ counts: itemCountsSchema });
 export type ItemCounts = z.infer<typeof itemCountsSchema>;
 export type CountsResponse = z.infer<typeof countsResponseSchema>;
 
-export const itemTypes = itemSchema.options.map((option) => option.shape.type.value);
+export const itemTypes = itemSchema.options.map(
+  (option) => option.shape.type.value,
+);
 export const itemTypeSchema = z.enum(itemTypes as [ItemType, ...ItemType[]]);
 
 /** An empty value means "no filter", so a cleared form field can be sent as is. */
 const optionalFilter = <S extends z.ZodType>(schema: S) =>
-  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+  z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    schema.optional(),
+  );
 
 /** Query of the list endpoint: the view's status plus optional filters, combined with AND. */
 export const listItemsQuerySchema = z.object({
@@ -102,13 +133,15 @@ export const listItemsQuerySchema = z.object({
   q: optionalFilter(z.string().trim()),
 });
 export type ListItemsQuery = z.infer<typeof listItemsQuerySchema>;
-export type ItemFilters = Omit<ListItemsQuery, 'status'>;
+export type ItemFilters = Omit<ListItemsQuery, "status">;
 
 /**
  * Lenient item for readers that must tolerate item types they don't know yet:
  * the envelope plus whatever else the server sent (ADR 0002).
  */
-export const itemEnvelopeLooseSchema = itemEnvelopeSchema.extend({ type: z.string() }).loose();
+export const itemEnvelopeLooseSchema = itemEnvelopeSchema
+  .extend({ type: z.string() })
+  .loose();
 export type ItemEnvelope = z.infer<typeof itemEnvelopeLooseSchema>;
 
 export const listItemEnvelopesResponseSchema = z.object({
@@ -117,7 +150,7 @@ export const listItemEnvelopesResponseSchema = z.object({
 
 /** RFC 9457 Problem Details, the shape of every API error. */
 export const problemDetailsSchema = z.object({
-  type: z.string().default('about:blank'),
+  type: z.string().default("about:blank"),
   title: z.string(),
   status: z.number().int(),
   detail: z.string().optional(),
