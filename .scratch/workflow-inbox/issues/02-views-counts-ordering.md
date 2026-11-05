@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The list endpoint returns the items of one view by status, ordered per view: Pending by priority then earliest due date then oldest; Failed by most recently failed; Completed by most recently completed
 - [ ] A counts endpoint returns the number of items per status and ignores any filters
