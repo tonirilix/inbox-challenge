@@ -1,4 +1,4 @@
-import type { ExpenseItem } from '@inbox/contracts';
+import type { DocumentationItem, ExpenseItem } from '@inbox/contracts';
 
 export function expenseItem(overrides: Partial<ExpenseItem> = {}): ExpenseItem {
   return {
@@ -22,4 +22,15 @@ export function expenseItem(overrides: Partial<ExpenseItem> = {}): ExpenseItem {
     },
     ...overrides,
   };
+}
+
+export function documentationItem(overrides: Partial<DocumentationItem> = {}): DocumentationItem {
+  return {
+    ...expenseItem(),
+    id: 'doc-1',
+    type: 'documentation',
+    title: 'Document the onboarding flow',
+    payload: { topic: 'Onboarding flow', audience: 'New hires' },
+    ...overrides,
+  } as DocumentationItem;
 }

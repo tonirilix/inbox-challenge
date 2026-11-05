@@ -48,11 +48,21 @@ export const expenseItemSchema = itemEnvelopeSchema.extend({
   }),
 });
 
-export const itemSchema = z.discriminatedUnion('type', [expenseItemSchema]);
+export const documentationItemSchema = itemEnvelopeSchema.extend({
+  type: z.literal('documentation'),
+  payload: z.object({
+    /** What needs documenting. */
+    topic: z.string(),
+    audience: z.string(),
+  }),
+});
+
+export const itemSchema = z.discriminatedUnion('type', [expenseItemSchema, documentationItemSchema]);
 
 export type Item = z.infer<typeof itemSchema>;
 export type ItemType = Item['type'];
 export type ExpenseItem = z.infer<typeof expenseItemSchema>;
+export type DocumentationItem = z.infer<typeof documentationItemSchema>;
 
 export const listItemsResponseSchema = z.object({ items: z.array(itemSchema) });
 export type ListItemsResponse = z.infer<typeof listItemsResponseSchema>;

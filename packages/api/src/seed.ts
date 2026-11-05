@@ -1,10 +1,19 @@
-import type { ExpenseItem, Item } from '@inbox/contracts';
+import type { DocumentationItem, ExpenseItem, Item } from '@inbox/contracts';
 
 type ExpenseSeed = Pick<ExpenseItem, 'id' | 'title' | 'priority' | 'requester' | 'payload'> &
   Partial<Pick<ExpenseItem, 'status' | 'outcome' | 'failureReason'>> & {
     /** Days from today; negative is in the past. */
     due?: number;
     /** Hours ago the item last changed status. */
+    updatedHoursAgo?: number;
+  };
+
+type DocumentationSeed = Pick<
+  DocumentationItem,
+  'id' | 'title' | 'priority' | 'requester' | 'payload'
+> &
+  Partial<Pick<DocumentationItem, 'status' | 'outcome' | 'failureReason'>> & {
+    due?: number;
     updatedHoursAgo?: number;
   };
 
@@ -22,6 +31,22 @@ export function seedItems(now: Date = new Date()): Item[] {
     failureReason: null,
     ...seed,
     type: 'expense',
+    createdAt: ago(24 * 8),
+    updatedAt: ago(updatedHoursAgo),
+    dueDate: due === undefined ? null : date(due),
+    lastAttempt: null,
+  });
+
+  const documentation = ({
+    due,
+    updatedHoursAgo = 24 * 7,
+    ...seed
+  }: DocumentationSeed): Item => ({
+    status: 'pending',
+    outcome: null,
+    failureReason: null,
+    ...seed,
+    type: 'documentation',
     createdAt: ago(24 * 8),
     updatedAt: ago(updatedHoursAgo),
     dueDate: due === undefined ? null : date(due),
@@ -183,6 +208,41 @@ export function seedItems(now: Date = new Date()): Item[] {
         amount: 12,
         currency: 'EUR',
       },
+    }),
+    documentation({
+      id: 'doc-1',
+      title: 'Document the onboarding flow',
+      priority: 'high',
+      requester: 'Priya Nair',
+      due: 3,
+      payload: { topic: 'Onboarding flow', audience: 'New hires' },
+    }),
+    documentation({
+      id: 'doc-2',
+      title: 'Document the release checklist',
+      priority: 'urgent',
+      requester: 'Tom Becker',
+      due: -1,
+      payload: { topic: 'Release checklist', audience: 'Engineers' },
+    }),
+    documentation({
+      id: 'doc-3',
+      title: 'Document the expense policy',
+      priority: 'low',
+      requester: 'Maria Lopez',
+      status: 'processing',
+      updatedHoursAgo: 2,
+      payload: { topic: 'Expense policy', audience: 'All staff' },
+    }),
+    documentation({
+      id: 'doc-4',
+      title: 'Document the on-call rota',
+      priority: 'normal',
+      requester: 'Jonas Weber',
+      status: 'completed',
+      outcome: 'done',
+      updatedHoursAgo: 20,
+      payload: { topic: 'On-call rota', audience: 'Engineers' },
     }),
   ];
 }

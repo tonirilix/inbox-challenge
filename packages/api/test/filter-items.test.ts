@@ -3,12 +3,12 @@ import {
   countsResponseSchema,
   listItemsResponseSchema,
   problemDetailsSchema,
-  type Item,
+  type ExpenseItem,
 } from '@inbox/contracts';
 import { createApp } from '../src/composition-root';
 import { InMemoryItemRepository } from '../src/repository/in-memory-item-repository';
 
-function item(overrides: Partial<Item> & { id: string }): Item {
+function item(overrides: Partial<ExpenseItem> & { id: string }): ExpenseItem {
   return {
     type: 'expense',
     title: overrides.id,

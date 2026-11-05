@@ -12,6 +12,7 @@ const typeExecutors: Record<ItemType, TypeExecutor> = {
     ok: true,
     outcome: action === 'approve' ? 'approved' : 'rejected',
   }),
+  documentation: async (): Promise<ExecutionResult> => ({ ok: true, outcome: 'done' }),
 };
 
 export class InlineExecutor implements Executor {
