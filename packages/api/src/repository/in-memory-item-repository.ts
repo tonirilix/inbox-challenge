@@ -11,4 +11,8 @@ export class InMemoryItemRepository implements ItemRepository {
   async list(): Promise<Item[]> {
     return [...this.items];
   }
+
+  async get(id: string): Promise<Item | undefined> {
+    return this.items.find((item) => item.id === id);
+  }
 }
