@@ -1,20 +1,31 @@
 import type { ComponentType } from 'react';
-import type { Item, ItemType } from '@inbox/contracts';
+import type { ActionRequest, Item, ItemType } from '@inbox/contracts';
+import { ExpenseActionForm } from './expense-action-form';
 import { ExpenseDetail } from './expense-detail';
 
 /**
  * What the web app needs to know about each item type. Typed as a full record
  * so adding a type to the contracts fails to compile until it is registered
- * here (ADR 0002). Later tickets add the action form.
+ * here (ADR 0002). The action form gathers an action's input and hands over a request; the
+ * server validates it again.
  */
+export interface ActionFormProps<T extends Item = Item> {
+  item: T;
+  /** Disabled while an action is in flight. */
+  disabled: boolean;
+  onSubmit: (request: ActionRequest) => void;
+}
+
 export interface ItemTypeModule<T extends Item = Item> {
   label: string;
   /** The type-specific part of the detail; the common envelope is rendered around it. */
   Detail: ComponentType<{ item: T }>;
+  /** The controls for the actions the type offers; shown only while the item is pending. */
+  ActionForm: ComponentType<ActionFormProps<T>>;
 }
 
 export const itemTypeModules: { [K in ItemType]: ItemTypeModule<Extract<Item, { type: K }>> } = {
-  expense: { label: 'Expense', Detail: ExpenseDetail },
+  expense: { label: 'Expense', Detail: ExpenseDetail, ActionForm: ExpenseActionForm },
 };
 
 export function isKnownItemType(type: string): type is ItemType {

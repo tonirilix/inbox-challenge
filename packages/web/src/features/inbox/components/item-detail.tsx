@@ -4,7 +4,15 @@ import { itemSchema, type Item, type ItemEnvelope } from '@inbox/contracts';
 import { ApiError } from '@/shared/api/client';
 import { Button } from '@/shared/ui/button';
 import { useItem } from '../hooks/use-items';
-import { isKnownItemType, itemTypeLabel, itemTypeModules } from '../item-types';
+import { useDelayedFlag } from '@/shared/a11y/use-delayed-flag';
+import { useSubmitAction } from '../hooks/use-submit-action';
+import {
+  isKnownItemType,
+  itemTypeLabel,
+  itemTypeModules,
+  type ActionFormProps,
+} from '../item-types';
+import { DEFAULT_VIEW } from '../views';
 
 function BackToList() {
   const { view = 'pending' } = useParams();
@@ -16,9 +24,17 @@ function BackToList() {
 }
 
 /** Common envelope fields around whatever the item type adds (children). */
-function ItemFrame({ item, children }: { item: ItemEnvelope; children?: ReactNode }) {
+function ItemFrame({
+  item,
+  busy = false,
+  children,
+}: {
+  item: ItemEnvelope;
+  busy?: boolean;
+  children?: ReactNode;
+}) {
   return (
-    <section aria-labelledby="item-title" className="flex flex-col gap-4 rounded-md border p-4">
+    <section aria-labelledby="item-title" aria-busy={busy} className="flex flex-col gap-4 rounded-md border p-4">
       <BackToList />
       <div>
         <h2 id="item-title" className="text-lg font-semibold">
@@ -45,10 +61,38 @@ function ItemFrame({ item, children }: { item: ItemEnvelope; children?: ReactNod
   );
 }
 
-function TypedDetail({ item }: { item: Item }) {
+/** Detail and, while pending, the action form of a known item type. */
+function KnownItemDetail({ item }: { item: Item }) {
+  const { view = DEFAULT_VIEW } = useParams();
+  const submit = useSubmitAction(item, view);
+  // Busy appears only after a noticeable wait; the form is locked from the start.
+  const busy = useDelayedFlag(submit.isPending);
   // Correlating the item with its own module cannot be expressed by the type system.
-  const { Detail } = itemTypeModules[item.type] as { Detail: ComponentType<{ item: Item }> };
-  return <Detail item={item} />;
+  const { Detail, ActionForm } = itemTypeModules[item.type] as unknown as {
+    Detail: ComponentType<{ item: Item }>;
+    ActionForm: ComponentType<ActionFormProps>;
+  };
+
+  return (
+    <ItemFrame item={item} busy={busy}>
+      <Detail item={item} />
+      {submit.error && (
+        <div role="alert">
+          {submit.error instanceof ApiError && submit.error.status === 409
+            ? 'This item was already handled, so your action was not applied. It has been refreshed.'
+            : 'The action could not be submitted. Try again.'}
+        </div>
+      )}
+      {busy && <p>Working…</p>}
+      {item.status === 'pending' && (
+        <ActionForm
+          item={item}
+          disabled={submit.isPending}
+          onSubmit={(request) => submit.mutate(request)}
+        />
+      )}
+    </ItemFrame>
+  );
 }
 
 export function ItemDetail({ itemId }: { itemId: string }) {
@@ -81,9 +125,7 @@ export function ItemDetail({ itemId }: { itemId: string }) {
   const known = isKnownItemType(envelope.type) ? itemSchema.safeParse(envelope) : undefined;
   if (known?.success) {
     return (
-      <ItemFrame item={known.data}>
-        <TypedDetail item={known.data} />
-      </ItemFrame>
+    <KnownItemDetail item={known.data} />
     );
   }
 

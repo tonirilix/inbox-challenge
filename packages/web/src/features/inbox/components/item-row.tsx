@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router';
 import type { ItemEnvelope } from '@inbox/contracts';
 import { cn } from '@/shared/lib/cn';
 import { itemTypeLabel } from '../item-types';
+import { itemLinkId } from '../utils/focus';
 import { daysOverdue, overdueText } from '../utils/overdue';
 import { PriorityLabel } from './priority-label';
 
@@ -21,6 +22,7 @@ export function ItemRow({ item }: { item: ItemEnvelope }) {
   return (
     <li>
       <Link
+        id={itemLinkId(item.id)}
         to={`/${view}/${encodeURIComponent(item.id)}`}
         aria-current={selected ? 'true' : undefined}
         className={cn(

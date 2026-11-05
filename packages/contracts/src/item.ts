@@ -79,5 +79,7 @@ export const problemDetailsSchema = z.object({
   title: z.string(),
   status: z.number().int(),
   detail: z.string().optional(),
+  /** On a 409: the status the item is in now. */
+  itemStatus: statusSchema.optional(),
 });
 export type ProblemDetails = z.infer<typeof problemDetailsSchema>;

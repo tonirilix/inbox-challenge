@@ -4,7 +4,12 @@ import {
   type CountsResponse,
   type ListItemsResponse,
 } from '@inbox/contracts';
-import { ItemNotFoundError, type ItemService } from '../service/item-service';
+import {
+  InvalidActionError,
+  ItemNotActionableError,
+  ItemNotFoundError,
+  type ItemService,
+} from '../service/item-service';
 import { problem } from './problem';
 
 export function itemRoutes(service: ItemService) {
@@ -34,6 +39,20 @@ export function itemRoutes(service: ItemService) {
           if (error instanceof ItemNotFoundError) {
             return problem(c, 404, 'Item not found', error.message);
           }
+          throw error;
+        }
+      })
+      .post('/:id/actions', async (c) => {
+        const body: unknown = await c.req.json().catch(() => undefined);
+        try {
+          return c.json(await service.submitAction(c.req.param('id'), body));
+        } catch (error) {
+          if (error instanceof ItemNotFoundError) return problem(c, 404, 'Item not found', error.message);
+          if (error instanceof InvalidActionError) return problem(c, 400, 'Invalid action', error.message);
+          if (error instanceof ItemNotActionableError)
+            return problem(c, 409, 'Item already handled', error.message, {
+              itemStatus: error.currentStatus,
+            });
           throw error;
         }
       })

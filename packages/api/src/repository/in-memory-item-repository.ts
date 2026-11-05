@@ -15,4 +15,10 @@ export class InMemoryItemRepository implements ItemRepository {
   async get(id: string): Promise<Item | undefined> {
     return this.items.find((item) => item.id === id);
   }
+
+  async save(item: Item): Promise<void> {
+    const index = this.items.findIndex((i) => i.id === item.id);
+    if (index === -1) this.items.push(item);
+    else this.items[index] = item;
+  }
 }

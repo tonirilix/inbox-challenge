@@ -254,4 +254,116 @@ describe('inbox', () => {
       expect(detail).toHaveTextContent(/not supported/i);
     });
   });
+
+  describe('completing an expense', () => {
+    const exp1 = expenseItem({ id: 'exp-1', title: 'Approve Acme travel expense' });
+    const exp2 = expenseItem({ id: 'exp-2', title: 'Approve monitor purchase' });
+
+    /** A server whose pending list shrinks once exp-1 is actioned. */
+    function serverWithActionResult(result: () => unknown) {
+      let handled = false;
+      return fakeApi({
+        '/api/items/counts': counts,
+        '/api/items?status=pending': () => ({ items: handled ? [exp2] : [exp1, exp2] }),
+        '/api/items/exp-1': () => exp1,
+        '/api/items/exp-2': () => exp2,
+        '/api/items/exp-1/actions': () => {
+          handled = true;
+          return result();
+        },
+      });
+    }
+
+    it('approves, moves focus to the next item and announces the outcome', async () => {
+      const fetchSpy = serverWithActionResult(() => ({
+        ...exp1,
+        status: 'completed',
+        outcome: 'approved',
+      }));
+      renderApp('/pending/exp-1');
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+
+      expect(
+        await screen.findByText('Approved “Approve Acme travel expense”. Next: Approve monitor purchase.'),
+      ).toBeInTheDocument();
+      const list = screen.getByRole('list', { name: 'Items' });
+      await waitFor(() =>
+        expect(within(list).queryByText(/Approve Acme travel expense/)).not.toBeInTheDocument(),
+      );
+      expect(within(list).getByRole('link', { name: /Approve monitor purchase/ })).toHaveFocus();
+      expect(await screen.findByRole('region', { name: 'Approve monitor purchase' })).toBeVisible();
+      const post = fetchSpy.mock.calls.find(([url]) => String(url) === '/api/items/exp-1/actions');
+      expect(post?.[1]?.method).toBe('POST');
+      expect(JSON.parse(String(post?.[1]?.body))).toEqual({ action: 'approve' });
+    });
+
+    it('moves focus to the list heading when no items remain', async () => {
+      let handled = false;
+      fakeApi({
+        '/api/items/counts': counts,
+        '/api/items?status=pending': () => ({ items: handled ? [] : [exp1] }),
+        '/api/items/exp-1': () => exp1,
+        '/api/items/exp-1/actions': () => {
+          handled = true;
+          return { ...exp1, status: 'completed', outcome: 'approved' };
+        },
+      });
+      renderApp('/pending/exp-1');
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+
+      expect(await screen.findByText(/No items remain/)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'Pending' })).toHaveFocus();
+    });
+
+    it('requires a reason to reject, shown next to the field, then rejects with it', async () => {
+      const fetchSpy = serverWithActionResult(() => ({
+        ...exp1,
+        status: 'completed',
+        outcome: 'rejected',
+      }));
+      renderApp('/pending/exp-1');
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Reject' }));
+
+      const reason = screen.getByRole('textbox', { name: /Reason/ });
+      expect(reason).toBeInvalid();
+      expect(reason).toHaveFocus();
+      expect(reason).toHaveAccessibleDescription(/Enter a reason for rejecting/);
+      expect(
+        fetchSpy.mock.calls.some(([url]) => String(url).endsWith('/actions')),
+      ).toBe(false);
+
+      await userEvent.type(reason, 'Over budget');
+      await userEvent.click(screen.getByRole('button', { name: 'Reject' }));
+
+      expect(await screen.findByText(/^Rejected “Approve Acme/)).toBeInTheDocument();
+      const post = fetchSpy.mock.calls.find(([url]) => String(url).endsWith('/actions'));
+      expect(JSON.parse(String(post?.[1]?.body))).toEqual({
+        action: 'reject',
+        input: { reason: 'Over budget' },
+      });
+    });
+
+    it('explains that the item was already handled on a conflict and refreshes the data', async () => {
+      const fetchSpy = fakeApi({
+        '/api/items/counts': counts,
+        '/api/items?status=pending': () => ({ items: [exp1] }),
+        '/api/items/exp-1': () => exp1,
+        '/api/items/exp-1/actions': () =>
+          new Response(
+            JSON.stringify({ title: 'Item already handled', status: 409, itemStatus: 'completed' }),
+            { status: 409, headers: { 'content-type': 'application/problem+json' } },
+          ),
+      });
+      renderApp('/pending/exp-1');
+      const detailCalls = () =>
+        fetchSpy.mock.calls.filter(([url]) => String(url) === '/api/items/exp-1').length;
+      await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/already handled/i);
+      await waitFor(() => expect(detailCalls()).toBeGreaterThan(1));
+    });
+  });
 });

@@ -24,3 +24,18 @@ export async function getJson<S extends z.ZodType>(path: string, schema: S): Pro
   if (!response.ok) throw new ApiError(response.status, await readProblem(response));
   return schema.parse(await response.json());
 }
+
+/** POSTs a JSON body and validates the response against its contract schema. */
+export async function postJson<S extends z.ZodType>(
+  path: string,
+  body: unknown,
+  schema: S,
+): Promise<z.infer<S>> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new ApiError(response.status, await readProblem(response));
+  return schema.parse(await response.json());
+}
