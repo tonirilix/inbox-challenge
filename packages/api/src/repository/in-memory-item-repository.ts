@@ -11,4 +11,8 @@ export class InMemoryItemRepository implements ItemRepository {
   async list({ status }: { status?: Status } = {}): Promise<Item[]> {
     return this.items.filter((item) => status === undefined || item.status === status);
   }
+
+  async get(id: string): Promise<Item | undefined> {
+    return this.items.find((item) => item.id === id);
+  }
 }

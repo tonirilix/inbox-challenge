@@ -63,3 +63,21 @@ export type ItemCounts = z.infer<typeof itemCountsSchema>;
 export type CountsResponse = z.infer<typeof countsResponseSchema>;
 
 export const listItemsQuerySchema = z.object({ status: statusSchema });
+
+/**
+ * Lenient item for readers that must tolerate item types they don't know yet:
+ * the envelope plus whatever else the server sent (ADR 0002).
+ */
+export const itemEnvelopeLooseSchema = itemEnvelopeSchema.extend({ type: z.string() }).loose();
+export type ItemEnvelope = z.infer<typeof itemEnvelopeLooseSchema>;
+
+export const listItemEnvelopesResponseSchema = z.object({ items: z.array(itemEnvelopeLooseSchema) });
+
+/** RFC 9457 Problem Details, the shape of every API error. */
+export const problemDetailsSchema = z.object({
+  type: z.string().default('about:blank'),
+  title: z.string(),
+  status: z.number().int(),
+  detail: z.string().optional(),
+});
+export type ProblemDetails = z.infer<typeof problemDetailsSchema>;

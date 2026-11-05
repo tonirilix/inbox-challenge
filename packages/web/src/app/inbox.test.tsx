@@ -168,4 +168,90 @@ describe('inbox', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Pending' })).toBeInTheDocument();
   });
+
+  describe('item detail', () => {
+    const exp1 = expenseItem({ id: 'exp-1', title: 'Approve Acme travel expense' });
+    const exp2 = expenseItem({
+      id: 'exp-2',
+      title: 'Approve monitor purchase',
+      payload: { merchant: 'Screens Ltd', category: 'Equipment', amount: 250, currency: 'EUR' },
+    });
+    const handlers = {
+      '/api/items/counts': counts,
+      '/api/items?status=pending': () => ({ items: [exp1, exp2] }),
+      '/api/items/exp-1': () => exp1,
+      '/api/items/exp-2': () => exp2,
+    };
+
+    it('opens an item beside the list when selected, at its own URL', async () => {
+      fakeApi(handlers);
+      renderApp();
+
+      const list = await screen.findByRole('list', { name: 'Items' });
+      await userEvent.click(within(list).getByRole('link', { name: /Approve monitor purchase/ }));
+
+      const detail = await screen.findByRole('region', { name: 'Approve monitor purchase' });
+      expect(within(detail).getByText('Screens Ltd')).toBeInTheDocument();
+      expect(within(list).getByRole('link', { name: /Approve monitor purchase/ })).toHaveAttribute(
+        'aria-current',
+        'true',
+      );
+      expect(within(list).getByRole('link', { name: /Approve Acme/ })).not.toHaveAttribute(
+        'aria-current',
+      );
+    });
+
+    it('shows the same split view when the item URL is opened directly', async () => {
+      fakeApi(handlers);
+      renderApp('/pending/exp-2');
+
+      const detail = await screen.findByRole('region', { name: 'Approve monitor purchase' });
+      expect(within(detail).getByText('Screens Ltd')).toBeInTheDocument();
+      expect(await screen.findByRole('list', { name: 'Items' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Back to list' })).toHaveAttribute(
+        'href',
+        '/pending',
+      );
+    });
+
+    it('shows a not-found state with a way back to the list', async () => {
+      fakeApi({
+        ...handlers,
+        '/api/items/missing': () =>
+          new Response(JSON.stringify({ title: 'Item not found', status: 404 }), {
+            status: 404,
+            headers: { 'content-type': 'application/problem+json' },
+          }),
+      });
+      renderApp('/pending/missing');
+
+      expect(await screen.findByRole('heading', { name: 'Item not found' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Back to list' })).toHaveAttribute(
+        'href',
+        '/pending',
+      );
+    });
+
+    it('renders a generic card for an item type the app does not know', async () => {
+      const unknown = {
+        ...exp1,
+        id: 'on-1',
+        type: 'onboarding',
+        title: 'Onboard Sam',
+        payload: { x: 1 },
+      };
+      fakeApi({
+        '/api/items/counts': counts,
+        '/api/items?status=pending': () => ({ items: [exp1, unknown] }),
+        '/api/items/on-1': () => unknown,
+      });
+      renderApp('/pending/on-1');
+
+      const list = await screen.findByRole('list', { name: 'Items' });
+      expect(within(list).getByText(/Onboard Sam/)).toBeInTheDocument();
+      const detail = await screen.findByRole('region', { name: 'Onboard Sam' });
+      expect(detail).toHaveTextContent('onboarding');
+      expect(detail).toHaveTextContent(/not supported/i);
+    });
+  });
 });

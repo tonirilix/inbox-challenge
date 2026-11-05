@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { countsResponseSchema, listItemsResponseSchema, type Item } from '@inbox/contracts';
+import {
+  countsResponseSchema,
+  itemSchema,
+  listItemsResponseSchema,
+  problemDetailsSchema,
+  type Item,
+} from '@inbox/contracts';
 import { createApp } from '../src/composition-root';
 import { InMemoryItemRepository } from '../src/repository/in-memory-item-repository';
 
@@ -152,5 +158,22 @@ describe('seed data', () => {
     );
     const outcomes = new Set(all.filter((i) => i.status === 'completed').map((i) => i.outcome));
     expect(outcomes.size).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('GET /api/items/:id', () => {
+  it('returns the item', async () => {
+    const response = await createApp().request('/api/items/exp-1');
+
+    expect(response.status).toBe(200);
+    expect(itemSchema.parse(await response.json())).toMatchObject({ id: 'exp-1', type: 'expense' });
+  });
+
+  it('responds 404 as Problem Details for an unknown id', async () => {
+    const response = await createApp().request('/api/items/nope');
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('content-type')).toContain('application/problem+json');
+    expect(problemDetailsSchema.parse(await response.json())).toMatchObject({ status: 404 });
   });
 });

@@ -1,5 +1,7 @@
-import type { Item } from '@inbox/contracts';
-import { itemTypeModules } from '../item-types';
+import { Link, useParams } from 'react-router';
+import type { ItemEnvelope } from '@inbox/contracts';
+import { cn } from '@/shared/lib/cn';
+import { itemTypeLabel } from '../item-types';
 import { daysOverdue, overdueText } from '../utils/overdue';
 import { PriorityLabel } from './priority-label';
 
@@ -11,21 +13,32 @@ const formatDate = (isoDate: string) =>
     timeZone: 'UTC',
   });
 
-export function ItemRow({ item }: { item: Item }) {
+export function ItemRow({ item }: { item: ItemEnvelope }) {
+  const { view = 'pending', itemId } = useParams();
+  const selected = itemId === item.id;
   const overdue = daysOverdue(item);
 
   return (
-    <li className="flex flex-col gap-1 p-3">
-      <span className="font-medium">{item.title}</span>
-      <span className="text-muted-foreground flex flex-wrap items-center gap-x-3 text-sm">
-        <span>{itemTypeModules[item.type].label}</span>
-        <span>{item.requester}</span>
-        <PriorityLabel priority={item.priority} />
-        {item.dueDate && <span>Due {formatDate(item.dueDate)}</span>}
-        {overdue > 0 && (
-          <span className="text-destructive font-medium">{overdueText(overdue)}</span>
+    <li>
+      <Link
+        to={`/${view}/${encodeURIComponent(item.id)}`}
+        aria-current={selected ? 'true' : undefined}
+        className={cn(
+          'flex flex-col gap-1 border-l-4 p-3',
+          selected ? 'border-primary bg-muted' : 'border-transparent',
         )}
-      </span>
+      >
+        <span className="font-medium">{item.title}</span>
+        <span className="text-muted-foreground flex flex-wrap items-center gap-x-3 text-sm">
+          <span>{itemTypeLabel(item.type)}</span>
+          <span>{item.requester}</span>
+          <PriorityLabel priority={item.priority} />
+          {item.dueDate && <span>Due {formatDate(item.dueDate)}</span>}
+          {overdue > 0 && (
+            <span className="text-destructive font-medium">{overdueText(overdue)}</span>
+          )}
+        </span>
+      </Link>
     </li>
   );
 }
