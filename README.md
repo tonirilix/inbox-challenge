@@ -72,6 +72,38 @@ Import boundaries, enforced by ESLint (`eslint.config.js`):
 
 Contracts are imported by both `api` and `web`; the two never import each other.
 
+### From a form to the backend
+
+What happens when a user submits an action (for example Approve):
+
+```mermaid
+sequenceDiagram
+    participant F as ActionForm (web)
+    participant H as useSubmitAction (web)
+    participant R as Route (api)
+    participant S as ItemService (api)
+    participant E as Executor port
+    participant P as Repository
+    participant B as EventPublisher port
+
+    F->>F: validate input with the contracts schema
+    F->>H: submit {action, input}
+    H->>R: POST /api/items/:id/actions
+    R->>S: submitAction(id, body)
+    S->>P: get item (404 if missing)
+    S->>S: check status (409), validate per-type input (400)
+    S->>E: execute(item, attempt)
+    E-->>S: ok + outcome, or failure reason
+    S->>P: save item (completed or failed)
+    S->>B: publish item.completed / item.failed
+    S-->>R: updated item
+    R-->>H: 200 + item (Problem Details on 400/404/409)
+    H->>H: refetch lists, counts and detail
+    H->>F: announce result, move focus to next item
+```
+
+The `contracts` package supplies the schemas used by the form and the service, so both sides validate the same shape.
+
 ## Intake
 
 Other systems raise items with `POST /api/items`. There is no UI for it. The server assigns `id`, `status` (`pending`), and timestamps; `dueDate` (`YYYY-MM-DD`) is optional. It responds `201` with the item, or `400` with Problem Details when the body is invalid.
