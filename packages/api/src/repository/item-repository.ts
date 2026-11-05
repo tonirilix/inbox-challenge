@@ -1,6 +1,6 @@
-import type { Item, Status } from '@inbox/contracts';
+import type { Item, ItemFilters, Status } from '@inbox/contracts';
 
 export interface ItemRepository {
-  list(query?: { status?: Status }): Promise<Item[]>;
+  list(query?: { status?: Status } & ItemFilters): Promise<Item[]>;
   get(id: string): Promise<Item | undefined>;
 }

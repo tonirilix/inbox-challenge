@@ -1,12 +1,12 @@
-import { statuses, type Item, type ItemCounts, type Status } from '@inbox/contracts';
+import { statuses, type Item, type ItemCounts, type ListItemsQuery } from '@inbox/contracts';
 import type { ItemRepository } from '../repository/item-repository';
 import { orderForView } from './order-items';
 
 export class ItemService {
   constructor(private readonly repository: ItemRepository) {}
 
-  async listItems(status: Status): Promise<Item[]> {
-    return orderForView(status, await this.repository.list({ status }));
+  async listItems(query: ListItemsQuery): Promise<Item[]> {
+    return orderForView(query.status, await this.repository.list(query));
   }
 
   /** Counts per status. Deliberately takes no filters (spec: counts ignore filters). */

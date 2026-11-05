@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   countsResponseSchema,
   itemEnvelopeLooseSchema,
   listItemEnvelopesResponseSchema,
+  type ItemFilters,
   type Status,
 } from '@inbox/contracts';
 import { getJson } from '@/shared/api/client';
@@ -10,16 +11,24 @@ import { getJson } from '@/shared/api/client';
 export const itemKeys = {
   all: ['items'] as const,
   lists: () => [...itemKeys.all, 'list'] as const,
-  list: (status: Status) => [...itemKeys.lists(), status] as const,
+  list: (status: Status, filters: ItemFilters = {}) =>
+    [...itemKeys.lists(), status, filters] as const,
   counts: () => [...itemKeys.all, 'counts'] as const,
   detail: (id: string) => [...itemKeys.all, 'detail', id] as const,
 };
 
 // Items are read leniently (envelope only) so a type this app doesn't know yet still lists.
-export function useItems(status: Status) {
+export function useItems(status: Status, filters: ItemFilters = {}) {
+  const query = new URLSearchParams({ status });
+  for (const key of ['type', 'priority', 'q'] as const) {
+    const value = filters[key];
+    if (value) query.set(key, value);
+  }
   return useQuery({
-    queryKey: itemKeys.list(status),
-    queryFn: () => getJson(`/api/items?status=${status}`, listItemEnvelopesResponseSchema),
+    queryKey: itemKeys.list(status, filters),
+    queryFn: () => getJson(`/api/items?${query}`, listItemEnvelopesResponseSchema),
+    // Keep the old rows on screen while a changed filter loads.
+    placeholderData: keepPreviousData,
     select: (data) => data.items,
   });
 }
