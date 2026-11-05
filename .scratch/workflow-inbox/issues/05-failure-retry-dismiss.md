@@ -4,7 +4,7 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The deployment review type exists across contracts, executor and web: approve, or request changes with a required comment
 - [ ] The executor fails deterministically on the first approval of the seeded production deployment and succeeds on retry; no randomness
