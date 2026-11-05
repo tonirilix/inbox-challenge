@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The actions endpoint accepts an action and its input for a pending item and returns the updated item
 - [ ] An executor port carries out actions (inline in v1) and an event publisher port receives events; the service depends only on the ports
