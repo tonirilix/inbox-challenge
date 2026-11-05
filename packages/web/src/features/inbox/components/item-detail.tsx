@@ -1,17 +1,12 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
-import { itemSchema, type Item, type ItemEnvelope } from '@inbox/contracts';
+import { itemSchema, type ActionRequest, type Item, type ItemEnvelope } from '@inbox/contracts';
 import { ApiError } from '@/shared/api/client';
 import { Button } from '@/shared/ui/button';
 import { useItem } from '../hooks/use-items';
 import { useDelayedFlag } from '@/shared/a11y/use-delayed-flag';
 import { useSubmitAction } from '../hooks/use-submit-action';
-import {
-  isKnownItemType,
-  itemTypeLabel,
-  itemTypeModules,
-  type ActionFormProps,
-} from '../item-types';
+import { isKnownItemType, itemTypeLabel, itemTypeModules, type ActionFormProps } from '../item-types';
 import { DEFAULT_VIEW } from '../views';
 
 function BackToList() {
@@ -35,7 +30,11 @@ function ItemFrame({
   children?: ReactNode;
 }) {
   return (
-    <section aria-labelledby="item-title" aria-busy={busy} className="flex flex-col gap-4 rounded-md border p-4">
+    <section
+      aria-labelledby="item-title"
+      aria-busy={busy}
+      className="flex flex-col gap-4 rounded-md border p-4"
+    >
       <BackToList />
       <div>
         <h2 id="item-title" className="text-lg font-semibold">
@@ -62,6 +61,41 @@ function ItemFrame({
   );
 }
 
+/** Why a failed item failed and the two ways out: replay the last attempt, or close it. */
+function FailedPanel({
+  item,
+  disabled,
+  onSubmit,
+}: {
+  item: ItemEnvelope;
+  disabled: boolean;
+  onSubmit: (request: ActionRequest) => void;
+}) {
+  const attempt = item.lastAttempt;
+  const details = attempt ? Object.values(attempt.input).map(String).join('; ') : '';
+  return (
+    <div className="flex flex-col gap-3">
+      <div role="alert" className="border-destructive rounded-md border p-3">
+        <p className="font-medium">This item failed: {item.failureReason}</p>
+        {attempt && (
+          <p className="text-sm">
+            Last attempt: {attempt.action.replace('_', ' ')}
+            {details && ` (${details})`}
+          </p>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Button disabled={disabled} onClick={() => onSubmit({ action: 'retry' })}>
+          Retry
+        </Button>
+        <Button variant="outline" disabled={disabled} onClick={() => onSubmit({ action: 'dismiss' })}>
+          Dismiss
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** Detail and, while pending, the action form of a known item type. */
 function KnownItemDetail({ item }: { item: Item }) {
   const { view = DEFAULT_VIEW } = useParams();
@@ -85,12 +119,11 @@ function KnownItemDetail({ item }: { item: Item }) {
         </div>
       )}
       {busy && <p>Working…</p>}
+      {item.status === 'failed' && (
+        <FailedPanel item={item} disabled={submit.isPending} onSubmit={(request) => submit.mutate(request)} />
+      )}
       {item.status === 'pending' && (
-        <ActionForm
-          item={item}
-          disabled={submit.isPending}
-          onSubmit={(request) => submit.mutate(request)}
-        />
+        <ActionForm item={item} disabled={submit.isPending} onSubmit={(request) => submit.mutate(request)} />
       )}
     </ItemFrame>
   );
@@ -125,9 +158,7 @@ export function ItemDetail({ itemId }: { itemId: string }) {
 
   const known = isKnownItemType(envelope.type) ? itemSchema.safeParse(envelope) : undefined;
   if (known?.success) {
-    return (
-    <KnownItemDetail item={known.data} />
-    );
+    return <KnownItemDetail item={known.data} />;
   }
 
   return (

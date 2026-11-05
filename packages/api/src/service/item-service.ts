@@ -1,6 +1,7 @@
 import {
   actionRequestSchema,
   actionSchemas,
+  isRecoveryAction,
   statuses,
   type ActionRequest,
   type Item,
@@ -39,30 +40,60 @@ export class ItemService {
   }
 
   /**
-   * Pending items accept any action of their type. Success completes the item
-   * with the executor's outcome; an executor failure marks it failed (ADR 0003).
+   * Pending items accept any action of their type; failed items accept only Retry
+   * and Dismiss. Success completes the item with the executor's outcome; an
+   * executor failure marks it failed (ADR 0003).
    */
   async submitAction(id: string, body: unknown): Promise<Item> {
     const item = await this.getItem(id);
-    if (item.status !== 'pending') throw new ItemNotActionableError(item.status);
-
     const envelope = actionRequestSchema.safeParse(body);
-    const typed = envelope.success ? actionSchemas[item.type].safeParse(envelope.data) : envelope;
-    if (!typed.success) throw new InvalidActionError(typed.error.issues[0]?.message ?? 'Invalid action');
-    const attempt = { action: typed.data.action, input: typed.data.input } as Required<ActionRequest>;
+    const recovery =
+      item.status === 'failed' && envelope.success && isRecoveryAction(envelope.data.action)
+        ? envelope.data.action
+        : undefined;
+    if (item.status !== 'pending' && !recovery) throw new ItemNotActionableError(item.status);
+
+    if (recovery === 'dismiss') {
+      return this.save({
+        ...item,
+        status: 'completed',
+        outcome: 'dismissed',
+        failureReason: null,
+      });
+    }
+
+    let attempt: Required<ActionRequest>;
+    if (recovery) {
+      if (!item.lastAttempt) throw new ItemNotActionableError(item.status);
+      attempt = item.lastAttempt;
+    } else {
+      const typed = envelope.success ? actionSchemas[item.type].safeParse(envelope.data) : envelope;
+      if (!typed.success) throw new InvalidActionError(typed.error.issues[0]?.message ?? 'Invalid action');
+      attempt = {
+        action: typed.data.action,
+        input: typed.data.input,
+      } as Required<ActionRequest>;
+    }
 
     const result = await this.executor.execute(item, attempt);
-    const updated: Item = {
+    return this.save({
       ...item,
       status: result.ok ? 'completed' : 'failed',
       outcome: result.ok ? result.outcome : null,
       failureReason: result.ok ? null : result.reason,
       lastAttempt: attempt,
-      updatedAt: new Date().toISOString(),
-    };
-    await this.repository.save(updated);
-    await this.events.publish({ type: result.ok ? 'item.completed' : 'item.failed', item: updated });
-    return updated;
+    });
+  }
+
+  /** Stamps the transition, persists it and publishes the matching event. */
+  private async save(updated: Item): Promise<Item> {
+    const saved: Item = { ...updated, updatedAt: new Date().toISOString() };
+    await this.repository.save(saved);
+    await this.events.publish({
+      type: saved.status === 'completed' ? 'item.completed' : 'item.failed',
+      item: saved,
+    });
+    return saved;
   }
 }
 

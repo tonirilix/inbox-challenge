@@ -12,6 +12,25 @@ const typeExecutors: Record<ItemType, TypeExecutor> = {
     ok: true,
     outcome: action === 'approve' ? 'approved' : 'rejected',
   }),
+  // Deterministic, no randomness: a production deployment's first approval fails; the
+  // retry replays an item that already has a last attempt, so it succeeds.
+  deployment: async (item, { action }): Promise<ExecutionResult> => {
+    if (
+      action === 'approve' &&
+      item.type === 'deployment' &&
+      item.payload.environment === 'production' &&
+      !item.lastAttempt
+    ) {
+      return {
+        ok: false,
+        reason: 'The deploy pipeline timed out waiting for the production lock.',
+      };
+    }
+    return {
+      ok: true,
+      outcome: action === 'approve' ? 'approved' : 'rejected',
+    };
+  },
 };
 
 export class InlineExecutor implements Executor {

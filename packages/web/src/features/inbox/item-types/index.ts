@@ -1,5 +1,7 @@
 import type { ComponentType } from 'react';
 import type { ActionRequest, Item, ItemType } from '@inbox/contracts';
+import { DeploymentActionForm } from './deployment-action-form';
+import { DeploymentDetail } from './deployment-detail';
 import { ExpenseActionForm } from './expense-action-form';
 import { ExpenseDetail } from './expense-detail';
 
@@ -26,6 +28,11 @@ export interface ItemTypeModule<T extends Item = Item> {
 
 export const itemTypeModules: { [K in ItemType]: ItemTypeModule<Extract<Item, { type: K }>> } = {
   expense: { label: 'Expense', Detail: ExpenseDetail, ActionForm: ExpenseActionForm },
+  deployment: {
+    label: 'Deployment',
+    Detail: DeploymentDetail,
+    ActionForm: DeploymentActionForm,
+  },
 };
 
 export function isKnownItemType(type: string): type is ItemType {

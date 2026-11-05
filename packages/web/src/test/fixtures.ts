@@ -1,4 +1,4 @@
-import type { ExpenseItem } from '@inbox/contracts';
+import type { DeploymentItem, ExpenseItem } from '@inbox/contracts';
 
 export function expenseItem(overrides: Partial<ExpenseItem> = {}): ExpenseItem {
   return {
@@ -20,6 +20,17 @@ export function expenseItem(overrides: Partial<ExpenseItem> = {}): ExpenseItem {
       amount: 100,
       currency: 'EUR',
     },
+    ...overrides,
+  };
+}
+
+export function deploymentItem(overrides: Partial<DeploymentItem> = {}): DeploymentItem {
+  return {
+    ...expenseItem(),
+    id: 'dep-1',
+    type: 'deployment',
+    title: 'Review billing-api deploy',
+    payload: { service: 'billing-api', environment: 'production', version: '2.4.0' },
     ...overrides,
   };
 }

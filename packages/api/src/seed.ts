@@ -1,10 +1,16 @@
-import type { ExpenseItem, Item } from '@inbox/contracts';
+import type { DeploymentItem, ExpenseItem, Item } from '@inbox/contracts';
 
 type ExpenseSeed = Pick<ExpenseItem, 'id' | 'title' | 'priority' | 'requester' | 'payload'> &
   Partial<Pick<ExpenseItem, 'status' | 'outcome' | 'failureReason'>> & {
     /** Days from today; negative is in the past. */
     due?: number;
     /** Hours ago the item last changed status. */
+    updatedHoursAgo?: number;
+  };
+
+type DeploymentSeed = Pick<DeploymentItem, 'id' | 'title' | 'priority' | 'requester' | 'payload'> &
+  Partial<Pick<DeploymentItem, 'status' | 'outcome' | 'failureReason' | 'lastAttempt'>> & {
+    due?: number;
     updatedHoursAgo?: number;
   };
 
@@ -26,6 +32,18 @@ export function seedItems(now: Date = new Date()): Item[] {
     updatedAt: ago(updatedHoursAgo),
     dueDate: due === undefined ? null : date(due),
     lastAttempt: null,
+  });
+
+  const deployment = ({ due, updatedHoursAgo = 24 * 7, ...seed }: DeploymentSeed): Item => ({
+    status: 'pending',
+    outcome: null,
+    failureReason: null,
+    lastAttempt: null,
+    ...seed,
+    type: 'deployment',
+    createdAt: ago(24 * 8),
+    updatedAt: ago(updatedHoursAgo),
+    dueDate: due === undefined ? null : date(due),
   });
 
   return [
@@ -184,5 +202,34 @@ export function seedItems(now: Date = new Date()): Item[] {
         currency: 'EUR',
       },
     }),
+    // The only pending production deployment: its first approval fails, the retry succeeds.
+    deployment({
+      id: 'dep-1',
+      title: 'Review billing-api 2.4.0 production deploy',
+      priority: 'urgent',
+      requester: 'Priya Nair',
+      due: 1,
+      payload: { service: 'billing-api', environment: 'production', version: '2.4.0' },
+    }),
+    deployment({
+      id: 'dep-2',
+      title: 'Review search-service 1.9.2 staging deploy',
+      priority: 'normal',
+      requester: 'Tom Becker',
+      due: 4,
+      payload: { service: 'search-service', environment: 'staging', version: '1.9.2' },
+    }),
+    deployment({
+      id: 'dep-3',
+      title: 'Review web-app 5.0.1 staging deploy',
+      priority: 'low',
+      requester: 'Maria Lopez',
+      status: 'completed',
+      outcome: 'approved',
+      lastAttempt: { action: 'approve', input: {} },
+      updatedHoursAgo: 20,
+      payload: { service: 'web-app', environment: 'staging', version: '5.0.1' },
+    }),
   ];
+
 }

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { axe } from 'vitest-axe';
 import { describe, expect, it } from 'vitest';
-import { expenseItem } from '@/test/fixtures';
+import { deploymentItem, expenseItem } from '@/test/fixtures';
 import { fakeApi } from '@/test/fake-api';
 import { Providers } from './providers';
 import { appRoutes } from './routes';
@@ -52,10 +52,7 @@ describe('inbox', () => {
     expect(screen.getByRole('navigation', { name: 'Views' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Pending' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Skip to items' })).toHaveAttribute(
-      'href',
-      '#main-content',
-    );
+    expect(screen.getByRole('link', { name: 'Skip to items' })).toHaveAttribute('href', '#main-content');
 
     // jsdom has no layout engine, so colour contrast cannot be computed here.
     const results = await axe(container, {
@@ -71,8 +68,7 @@ describe('inbox', () => {
     });
     renderApp();
     await screen.findByRole('list', { name: 'Items' });
-    const calls = () =>
-      fetchSpy.mock.calls.filter(([url]) => String(url).includes('status=pending')).length;
+    const calls = () => fetchSpy.mock.calls.filter(([url]) => String(url).includes('status=pending')).length;
     expect(calls()).toBe(1);
 
     window.dispatchEvent(new Event('visibilitychange'));
@@ -92,9 +88,7 @@ describe('inbox', () => {
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Failed, 3 items' })).not.toHaveAttribute(
-      'aria-current',
-    );
+    expect(screen.getByRole('link', { name: 'Failed, 3 items' })).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('link', { name: 'Completed, 1 item' })).toBeInTheDocument();
   });
 
@@ -116,10 +110,7 @@ describe('inbox', () => {
     expect(await screen.findByText('A failed one')).toBeInTheDocument();
     expect(screen.queryByText('A pending one')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Failed' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Failed, 3 items' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(screen.getByRole('link', { name: 'Failed, 3 items' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('shows priority as text, the due date, and how late an overdue open item is', async () => {
@@ -196,9 +187,7 @@ describe('inbox', () => {
         'aria-current',
         'true',
       );
-      expect(within(list).getByRole('link', { name: /Approve Acme/ })).not.toHaveAttribute(
-        'aria-current',
-      );
+      expect(within(list).getByRole('link', { name: /Approve Acme/ })).not.toHaveAttribute('aria-current');
     });
 
     it('shows the same split view when the item URL is opened directly', async () => {
@@ -208,10 +197,7 @@ describe('inbox', () => {
       const detail = await screen.findByRole('region', { name: 'Approve monitor purchase' });
       expect(within(detail).getByText('Screens Ltd')).toBeInTheDocument();
       expect(await screen.findByRole('list', { name: 'Items' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Back to list' })).toHaveAttribute(
-        'href',
-        '/pending',
-      );
+      expect(screen.getByRole('link', { name: 'Back to list' })).toHaveAttribute('href', '/pending');
     });
 
     it('shows a not-found state with a way back to the list', async () => {
@@ -226,10 +212,7 @@ describe('inbox', () => {
       renderApp('/pending/missing');
 
       expect(await screen.findByRole('heading', { name: 'Item not found' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Back to list' })).toHaveAttribute(
-        'href',
-        '/pending',
-      );
+      expect(screen.getByRole('link', { name: 'Back to list' })).toHaveAttribute('href', '/pending');
     });
 
     it('renders a generic card for an item type the app does not know', async () => {
@@ -331,9 +314,7 @@ describe('inbox', () => {
       expect(reason).toBeInvalid();
       expect(reason).toHaveFocus();
       expect(reason).toHaveAccessibleDescription(/Enter a reason for rejecting/);
-      expect(
-        fetchSpy.mock.calls.some(([url]) => String(url).endsWith('/actions')),
-      ).toBe(false);
+      expect(fetchSpy.mock.calls.some(([url]) => String(url).endsWith('/actions'))).toBe(false);
 
       await userEvent.type(reason, 'Over budget');
       await userEvent.click(screen.getByRole('button', { name: 'Reject' }));
@@ -364,6 +345,119 @@ describe('inbox', () => {
 
       expect(await screen.findByRole('alert')).toHaveTextContent(/already handled/i);
       await waitFor(() => expect(detailCalls()).toBeGreaterThan(1));
+    });
+  });
+
+  describe('failed items', () => {
+    const failed = expenseItem({
+      id: 'exp-1',
+      title: 'Approve Acme travel expense',
+      status: 'failed',
+      failureReason: 'The accounting system did not respond.',
+      lastAttempt: { action: 'approve', input: {} },
+    });
+    const other = expenseItem({ id: 'exp-2', title: 'Approve monitor purchase', status: 'failed' });
+
+    function serverWithRecovery(result: unknown) {
+      let handled = false;
+      return fakeApi({
+        '/api/items/counts': counts,
+        '/api/items?status=failed': () => ({ items: handled ? [other] : [failed, other] }),
+        '/api/items/exp-1': () => (handled ? result : failed),
+        '/api/items/exp-2': () => other,
+        '/api/items/exp-1/actions': () => {
+          handled = true;
+          return result;
+        },
+      });
+    }
+
+    it('shows the reason and last attempt in an alert with Retry and Dismiss', async () => {
+      serverWithRecovery({ ...failed, status: 'completed', outcome: 'approved' });
+      renderApp('/failed/exp-1');
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('The accounting system did not respond.');
+      expect(alert).toHaveTextContent(/Last attempt: approve/);
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Dismiss' })).toBeEnabled();
+      expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    });
+
+    it('retries, moves focus to the next failed item and announces the outcome', async () => {
+      const fetchSpy = serverWithRecovery({ ...failed, status: 'completed', outcome: 'approved' });
+      renderApp('/failed/exp-1');
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+
+      expect(
+        await screen.findByText('Approved “Approve Acme travel expense”. Next: Approve monitor purchase.'),
+      ).toBeInTheDocument();
+      const list = screen.getByRole('list', { name: 'Items' });
+      await waitFor(() =>
+        expect(within(list).queryByText(/Approve Acme travel expense/)).not.toBeInTheDocument(),
+      );
+      expect(within(list).getByRole('link', { name: /Approve monitor purchase/ })).toHaveFocus();
+      const post = fetchSpy.mock.calls.find(([url]) => String(url) === '/api/items/exp-1/actions');
+      expect(JSON.parse(String(post?.[1]?.body))).toEqual({ action: 'retry' });
+    });
+
+    it('announces when the retry fails again and keeps the item in place', async () => {
+      serverWithRecovery({ ...failed, failureReason: 'Still down' });
+      renderApp('/failed/exp-1');
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+
+      expect(
+        await screen.findByText(/Could not complete “Approve Acme travel expense”: Still down/),
+      ).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: 'Retry' })).toBeEnabled();
+    });
+
+    it('dismisses, moves focus to the next item and announces it', async () => {
+      const fetchSpy = serverWithRecovery({ ...failed, status: 'completed', outcome: 'dismissed' });
+      renderApp('/failed/exp-1');
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Dismiss' }));
+
+      expect(
+        await screen.findByText('Dismissed “Approve Acme travel expense”. Next: Approve monitor purchase.'),
+      ).toBeInTheDocument();
+      const list = screen.getByRole('list', { name: 'Items' });
+      expect(await within(list).findByRole('link', { name: /Approve monitor purchase/ })).toHaveFocus();
+      const post = fetchSpy.mock.calls.find(([url]) => String(url) === '/api/items/exp-1/actions');
+      expect(JSON.parse(String(post?.[1]?.body))).toEqual({ action: 'dismiss' });
+    });
+  });
+
+  describe('reviewing a deployment', () => {
+    const dep = deploymentItem({ id: 'dep-1', title: 'Review billing-api deploy' });
+
+    it('approves, or requires a comment to request changes', async () => {
+      const fetchSpy = fakeApi({
+        '/api/items/counts': counts,
+        '/api/items?status=pending': () => ({ items: [dep] }),
+        '/api/items/dep-1': () => dep,
+        '/api/items/dep-1/actions': () => ({ ...dep, status: 'completed', outcome: 'rejected' }),
+      });
+      renderApp('/pending/dep-1');
+
+      expect(await screen.findByText('billing-api')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+      const comment = screen.getByRole('textbox', { name: /Comment/ });
+      expect(comment).toBeInvalid();
+      expect(comment).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+
+      await userEvent.type(comment, 'Add a rollback plan');
+      await userEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+
+      expect(await screen.findByText(/^Rejected “Review billing-api deploy”/)).toBeInTheDocument();
+      const post = fetchSpy.mock.calls.find(([url]) => String(url).endsWith('/actions'));
+      expect(JSON.parse(String(post?.[1]?.body))).toEqual({
+        action: 'request_changes',
+        input: { comment: 'Add a rollback plan' },
+      });
     });
   });
 });

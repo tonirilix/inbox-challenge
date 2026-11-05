@@ -11,13 +11,33 @@ export const expenseActionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('approve'), input: noInput }),
   z.object({
     action: z.literal('reject'),
-    input: z.object({ reason: z.string().trim().min(1, 'Enter a reason for rejecting') }),
+    input: z.object({
+      reason: z.string().trim().min(1, 'Enter a reason for rejecting'),
+    }),
   }),
 ]);
+
+/** Approve a deployment, or send it back with a required comment. */
+export const deploymentActionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('approve'), input: noInput }),
+  z.object({
+    action: z.literal('request_changes'),
+    input: z.object({
+      comment: z.string().trim().min(1, 'Enter a comment describing the changes'),
+    }),
+  }),
+]);
+
+/** Actions every failed item accepts, whatever its type: replay the last attempt, or close it. */
+export const recoveryActions = ['retry', 'dismiss'] as const;
+export type RecoveryAction = (typeof recoveryActions)[number];
+export const isRecoveryAction = (action: unknown): action is RecoveryAction =>
+  recoveryActions.some((a) => a === action);
 
 /** Per item type, the schema of a valid action request. A missing type fails to compile. */
 export const actionSchemas = {
   expense: expenseActionSchema,
+  deployment: deploymentActionSchema,
 } as const satisfies Record<ItemType, z.ZodType>;
 
 export type ExpenseActionRequest = z.input<typeof expenseActionSchema>;

@@ -48,11 +48,21 @@ export const expenseItemSchema = itemEnvelopeSchema.extend({
   }),
 });
 
-export const itemSchema = z.discriminatedUnion('type', [expenseItemSchema]);
+export const deploymentItemSchema = itemEnvelopeSchema.extend({
+  type: z.literal('deployment'),
+  payload: z.object({
+    service: z.string(),
+    environment: z.enum(['production', 'staging']),
+    version: z.string(),
+  }),
+});
+
+export const itemSchema = z.discriminatedUnion('type', [expenseItemSchema, deploymentItemSchema]);
 
 export type Item = z.infer<typeof itemSchema>;
 export type ItemType = Item['type'];
 export type ExpenseItem = z.infer<typeof expenseItemSchema>;
+export type DeploymentItem = z.infer<typeof deploymentItemSchema>;
 
 export const listItemsResponseSchema = z.object({ items: z.array(itemSchema) });
 export type ListItemsResponse = z.infer<typeof listItemsResponseSchema>;
@@ -87,7 +97,9 @@ export type ItemFilters = Omit<ListItemsQuery, 'status'>;
 export const itemEnvelopeLooseSchema = itemEnvelopeSchema.extend({ type: z.string() }).loose();
 export type ItemEnvelope = z.infer<typeof itemEnvelopeLooseSchema>;
 
-export const listItemEnvelopesResponseSchema = z.object({ items: z.array(itemEnvelopeLooseSchema) });
+export const listItemEnvelopesResponseSchema = z.object({
+  items: z.array(itemEnvelopeLooseSchema),
+});
 
 /** RFC 9457 Problem Details, the shape of every API error. */
 export const problemDetailsSchema = z.object({

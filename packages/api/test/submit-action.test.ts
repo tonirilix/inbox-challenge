@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { itemSchema, problemDetailsSchema, type Item, type ItemEvent } from '@inbox/contracts';
+import {
+  itemSchema,
+  problemDetailsSchema,
+  type DeploymentItem,
+  type ExpenseItem,
+  type Item,
+  type ItemEvent,
+} from '@inbox/contracts';
 import { createApp } from '../src/composition-root';
 import type { EventPublisher } from '../src/events/event-publisher';
 import type { Executor } from '../src/executor/executor';
 import { InMemoryItemRepository } from '../src/repository/in-memory-item-repository';
 
-function expense(overrides: Partial<Item> & { id: string }): Item {
+function expense(overrides: Partial<ExpenseItem> & { id: string }): ExpenseItem {
   return {
     type: 'expense',
     title: overrides.id,
@@ -19,6 +26,15 @@ function expense(overrides: Partial<Item> & { id: string }): Item {
     lastAttempt: null,
     failureReason: null,
     payload: { merchant: 'Acme', category: 'Travel', amount: 10, currency: 'EUR' },
+    ...overrides,
+  };
+}
+
+function deployment(overrides: Partial<DeploymentItem> & { id: string }): DeploymentItem {
+  return {
+    ...expense({ id: overrides.id }),
+    type: 'deployment',
+    payload: { service: 'billing-api', environment: 'production', version: '2.4.0' },
     ...overrides,
   };
 }
@@ -145,5 +161,120 @@ describe('POST /api/items/:id/actions', () => {
     });
     expect(item.updatedAt).not.toBe('2026-10-28T09:00:00.000Z');
     expect(publisher.events).toEqual([{ type: 'item.failed', item }]);
+  });
+
+  describe('deployments', () => {
+    it('requires a comment to request changes, then completes as rejected', async () => {
+      const { act } = setup([deployment({ id: 'd1' })]);
+
+      expect((await act('d1', { action: 'request_changes' })).status).toBe(400);
+      const response = await act('d1', {
+        action: 'request_changes',
+        input: { comment: 'Add a rollback plan' },
+      });
+
+      expect(response.status).toBe(200);
+      expect(itemSchema.parse(await response.json())).toMatchObject({
+        status: 'completed',
+        outcome: 'rejected',
+        lastAttempt: { action: 'request_changes', input: { comment: 'Add a rollback plan' } },
+      });
+    });
+
+    it('approves a staging deployment straight away', async () => {
+      const { act } = setup([
+        deployment({
+          id: 'd1',
+          payload: { service: 'search', environment: 'staging', version: '1.0.0' },
+        }),
+      ]);
+      const item = itemSchema.parse(await (await act('d1', { action: 'approve' })).json());
+      expect(item).toMatchObject({ status: 'completed', outcome: 'approved' });
+    });
+  });
+
+  describe('failure, retry and dismiss', () => {
+    const failedFirstApproval = () => setup([deployment({ id: 'd1' })]);
+
+    it('fails the first approval of a production deployment with status 200, then retry succeeds', async () => {
+      const { act, publisher } = failedFirstApproval();
+
+      const response = await act('d1', { action: 'approve' });
+
+      expect(response.status).toBe(200);
+      const failed = itemSchema.parse(await response.json());
+      expect(failed).toMatchObject({
+        status: 'failed',
+        outcome: null,
+        lastAttempt: { action: 'approve', input: {} },
+      });
+      expect(failed.failureReason).toEqual(expect.any(String));
+
+      const retried = itemSchema.parse(await (await act('d1', { action: 'retry' })).json());
+      expect(retried).toMatchObject({
+        status: 'completed',
+        outcome: 'approved',
+        failureReason: null,
+        lastAttempt: { action: 'approve', input: {} },
+      });
+      expect(publisher.events.map((e) => e.type)).toEqual(['item.failed', 'item.completed']);
+    });
+
+    it('stays failed when the replayed attempt fails again', async () => {
+      const failing: Executor = { execute: async () => ({ ok: false, reason: 'Still down' }) };
+      const { act } = setup(
+        [
+          expense({
+            id: 'e1',
+            status: 'failed',
+            failureReason: 'Down',
+            lastAttempt: { action: 'approve', input: {} },
+          }),
+        ],
+        failing,
+      );
+      const item = itemSchema.parse(await (await act('e1', { action: 'retry' })).json());
+      expect(item).toMatchObject({ status: 'failed', failureReason: 'Still down' });
+    });
+
+    it('dismisses a failed item as completed with outcome dismissed', async () => {
+      const { act, app, publisher } = failedFirstApproval();
+      await act('d1', { action: 'approve' });
+
+      const response = await act('d1', { action: 'dismiss' });
+
+      expect(response.status).toBe(200);
+      const item = itemSchema.parse(await response.json());
+      expect(item).toMatchObject({ status: 'completed', outcome: 'dismissed', failureReason: null });
+      const completed = await (await app.request('/api/items?status=completed')).json();
+      expect(completed).toMatchObject({ items: [{ id: 'd1' }] });
+      expect(publisher.events.at(-1)).toEqual({ type: 'item.completed', item });
+    });
+
+    it.each(['approve', 'request_changes', 'explode'])(
+      'answers 409 to %s on a failed item',
+      async (action) => {
+        const { act } = failedFirstApproval();
+        await act('d1', { action: 'approve' });
+        const response = await act('d1', { action, input: { comment: 'x' } });
+        expect(response.status).toBe(409);
+        expect(problemDetailsSchema.parse(await response.json()).itemStatus).toBe('failed');
+      },
+    );
+
+    it.each(['retry', 'dismiss'])('answers 409 to %s on a completed item', async (action) => {
+      const { act } = setup([expense({ id: 'e1', status: 'completed', outcome: 'approved' })]);
+      const response = await act('e1', { action });
+      expect(response.status).toBe(409);
+      expect(problemDetailsSchema.parse(await response.json()).itemStatus).toBe('completed');
+    });
+
+    it.each(['retry', 'dismiss'])(
+      'answers 400 to %s on a pending item, which has nothing to recover',
+      async (action) => {
+        const { act } = setup([expense({ id: 'e1' })]);
+        expect((await act('e1', { action })).status).toBe(400);
+      },
+    );
   });
 });
