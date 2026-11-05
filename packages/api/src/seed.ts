@@ -234,7 +234,12 @@ export function seedItems(now: Date = new Date()): Item[] {
       priority: 'urgent',
       requester: 'Priya Nair',
       due: 1,
-      payload: { service: 'billing-api', environment: 'production', version: '2.4.0' },
+      payload: {
+        service: 'billing-api',
+        environment: 'production',
+        version: '2.4.0',
+        failsFirstApproval: true,
+      },
     }),
     deployment({
       id: 'dep-2',

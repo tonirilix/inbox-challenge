@@ -11,6 +11,7 @@ import {
   ItemNotFoundError,
   type ItemService,
 } from "../service/item-service";
+import { formatIssues } from "../zod-issues";
 import { problem } from "./problem";
 
 export function itemRoutes(service: ItemService) {
@@ -28,9 +29,7 @@ export function itemRoutes(service: ItemService) {
             c,
             400,
             "Invalid query",
-            query.error.issues
-              .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-              .join("; "),
+            formatIssues(query.error),
           );
         const body: ListItemsResponse = {
           items: await service.listItems(query.data),
@@ -67,7 +66,7 @@ export function itemRoutes(service: ItemService) {
           if (error instanceof InvalidActionError)
             return problem(c, 400, "Invalid action", error.message);
           if (error instanceof ItemNotActionableError)
-            return problem(c, 409, "Item already handled", error.message, {
+            return problem(c, 409, error.currentStatus === "failed" ? "Action not available" : "Item already handled", error.message, {
               itemStatus: error.currentStatus,
             });
           throw error;

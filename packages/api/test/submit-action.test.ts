@@ -34,7 +34,12 @@ function deployment(overrides: Partial<DeploymentItem> & { id: string }): Deploy
   return {
     ...expense({ id: overrides.id }),
     type: 'deployment',
-    payload: { service: 'billing-api', environment: 'production', version: '2.4.0' },
+    payload: {
+      service: 'billing-api',
+      environment: 'production',
+      version: '2.4.0',
+      failsFirstApproval: true,
+    },
     ...overrides,
   };
 }
@@ -261,6 +266,39 @@ describe('POST /api/items/:id/actions', () => {
         expect(problemDetailsSchema.parse(await response.json()).itemStatus).toBe('failed');
       },
     );
+
+    it('succeeds the first approval of a production deployment that is not flagged to fail', async () => {
+      const { act } = setup([
+        deployment({
+          id: 'd2',
+          payload: { service: 'billing-api', environment: 'production', version: '2.5.0' },
+        }),
+      ]);
+      expect(itemSchema.parse(await (await act('d2', { action: 'approve' })).json())).toMatchObject({
+        status: 'completed',
+        outcome: 'approved',
+      });
+    });
+
+    it('titles the 409 for a refused action on a failed item differently from an handled one', async () => {
+      const { act } = failedFirstApproval();
+      await act('d1', { action: 'approve' });
+      const refused = problemDetailsSchema.parse(await (await act('d1', { action: 'approve' })).json());
+      expect(refused.title).toBe('Action not available');
+      await act('d1', { action: 'dismiss' });
+      const handled = problemDetailsSchema.parse(await (await act('d1', { action: 'approve' })).json());
+      expect(handled.title).toBe('Item already handled');
+    });
+
+    it('dismisses a failed item that has no last attempt, and answers 400 to retry on it', async () => {
+      const failedNoAttempt = () => expense({ id: 'e1', status: 'failed', failureReason: 'Down' });
+      const retry = setup([failedNoAttempt()]);
+      expect((await retry.act('e1', { action: 'retry' })).status).toBe(400);
+      const dismiss = setup([failedNoAttempt()]);
+      const response = await dismiss.act('e1', { action: 'dismiss' });
+      expect(response.status).toBe(200);
+      expect(itemSchema.parse(await response.json())).toMatchObject({ outcome: 'dismissed' });
+    });
 
     it.each(['retry', 'dismiss'])('answers 409 to %s on a completed item', async (action) => {
       const { act } = setup([expense({ id: 'e1', status: 'completed', outcome: 'approved' })]);

@@ -14,6 +14,7 @@ import {
 import type { EventPublisher } from "../events/event-publisher";
 import type { Executor } from "../executor/executor";
 import type { ItemRepository } from "../repository/item-repository";
+import { formatIssues } from "../zod-issues";
 import { orderForView } from "./order-items";
 
 export class ItemService {
@@ -71,7 +72,7 @@ export class ItemService {
 
     let attempt: Required<ActionRequest>;
     if (recovery) {
-      if (!item.lastAttempt) throw new ItemNotActionableError(item.status);
+      if (!item.lastAttempt) throw new InvalidActionError("There is no earlier attempt to retry");
       attempt = item.lastAttempt;
     } else {
       const typed = envelope.success
@@ -102,9 +103,7 @@ export class ItemService {
     const request = createItemRequestSchema.safeParse(body);
     if (!request.success)
       throw new InvalidItemError(
-        request.error.issues
-          .map((i) => `${i.path.join(".") || "body"}: ${i.message}`)
-          .join("; "),
+        formatIssues(request.error),
       );
     const now = new Date().toISOString();
     const item = {

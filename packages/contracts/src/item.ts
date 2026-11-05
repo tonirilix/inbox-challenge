@@ -59,6 +59,8 @@ export const deploymentItemSchema = itemEnvelopeSchema.extend({
     service: z.string(),
     environment: z.enum(["production", "staging"]),
     version: z.string(),
+    /** Demo hook: the first approval fails and the retry succeeds. Only the seed sets it. */
+    failsFirstApproval: z.boolean().optional(),
   }),
 });
 
@@ -94,10 +96,16 @@ const intakeFields = {
 const intakeDueDate = {
   dueDate: itemEnvelopeSchema.shape.dueDate.default(null),
 };
+/** One intake schema per item type; a missing type fails to compile (ADR 0002). */
+const intakeSchemas = {
+  expense: expenseItemSchema.pick(intakeFields).extend(intakeDueDate),
+  deployment: deploymentItemSchema.pick(intakeFields).extend(intakeDueDate),
+  documentation: documentationItemSchema.pick(intakeFields).extend(intakeDueDate),
+} as const satisfies Record<ItemType, z.ZodType>;
 export const createItemRequestSchema = z.discriminatedUnion("type", [
-  expenseItemSchema.pick(intakeFields).extend(intakeDueDate),
-  deploymentItemSchema.pick(intakeFields).extend(intakeDueDate),
-  documentationItemSchema.pick(intakeFields).extend(intakeDueDate),
+  intakeSchemas.expense,
+  intakeSchemas.deployment,
+  intakeSchemas.documentation,
 ]);
 export type CreateItemRequest = z.infer<typeof createItemRequestSchema>;
 
