@@ -4,7 +4,7 @@
 
 **Blocked by:** 05, 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The intake endpoint creates a pending item, validated against the contract of its type, and returns 201 with the item
 - [ ] An invalid or unknown type, or a payload that doesn't match the type, returns 400 as Problem Details
