@@ -1,4 +1,4 @@
-import type { Item, Status } from '@inbox/contracts';
+import type { Item, ItemFilters, Status } from '@inbox/contracts';
 import type { ItemRepository } from './item-repository';
 
 export class InMemoryItemRepository implements ItemRepository {
@@ -8,8 +8,22 @@ export class InMemoryItemRepository implements ItemRepository {
     this.items = [...items];
   }
 
-  async list({ status }: { status?: Status } = {}): Promise<Item[]> {
-    return this.items.filter((item) => status === undefined || item.status === status);
+  async list({
+    status,
+    type,
+    priority,
+    q,
+  }: { status?: Status } & ItemFilters = {}): Promise<Item[]> {
+    const needle = q?.toLowerCase();
+    return this.items.filter(
+      (item) =>
+        (status === undefined || item.status === status) &&
+        (type === undefined || item.type === type) &&
+        (priority === undefined || item.priority === priority) &&
+        (!needle ||
+          item.title.toLowerCase().includes(needle) ||
+          item.requester.toLowerCase().includes(needle)),
+    );
   }
 
   async get(id: string): Promise<Item | undefined> {

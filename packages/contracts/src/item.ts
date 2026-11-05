@@ -62,7 +62,23 @@ export const countsResponseSchema = z.object({ counts: itemCountsSchema });
 export type ItemCounts = z.infer<typeof itemCountsSchema>;
 export type CountsResponse = z.infer<typeof countsResponseSchema>;
 
-export const listItemsQuerySchema = z.object({ status: statusSchema });
+export const itemTypes = itemSchema.options.map((option) => option.shape.type.value);
+export const itemTypeSchema = z.enum(itemTypes as [ItemType, ...ItemType[]]);
+
+/** An empty value means "no filter", so a cleared form field can be sent as is. */
+const optionalFilter = <S extends z.ZodType>(schema: S) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+
+/** Query of the list endpoint: the view's status plus optional filters, combined with AND. */
+export const listItemsQuerySchema = z.object({
+  status: statusSchema,
+  type: optionalFilter(itemTypeSchema),
+  priority: optionalFilter(prioritySchema),
+  /** Matches title and requester, case-insensitively. */
+  q: optionalFilter(z.string().trim()),
+});
+export type ListItemsQuery = z.infer<typeof listItemsQuerySchema>;
+export type ItemFilters = Omit<ListItemsQuery, 'status'>;
 
 /**
  * Lenient item for readers that must tolerate item types they don't know yet:

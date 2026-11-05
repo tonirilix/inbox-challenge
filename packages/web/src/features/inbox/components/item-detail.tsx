@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { itemSchema, type Item, type ItemEnvelope } from '@inbox/contracts';
 import { ApiError } from '@/shared/api/client';
 import { Button } from '@/shared/ui/button';
@@ -16,8 +16,9 @@ import { DEFAULT_VIEW } from '../views';
 
 function BackToList() {
   const { view = 'pending' } = useParams();
+  const { search } = useLocation();
   return (
-    <Link to={`/${view}`} className="text-sm underline">
+    <Link to={`/${view}${search}`} className="text-sm underline">
       Back to list
     </Link>
   );

@@ -1,13 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import {
   itemEnvelopeLooseSchema,
   type ActionRequest,
   type ItemEnvelope,
+  type Status,
 } from '@inbox/contracts';
 import { useAnnounce } from '@/shared/a11y/announcer';
 import { postJson } from '@/shared/api/client';
 import { itemLinkId, focusElement, LIST_HEADING_ID } from '../utils/focus';
+import { useItemFilters } from './use-item-filters';
 import { itemKeys } from './use-items';
 
 /** The item after `id` in the cached list, else the one before it. */
@@ -32,20 +34,21 @@ export function useSubmitAction(item: ItemEnvelope, view: string) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const announce = useAnnounce();
+  const { search } = useLocation();
+  const { filters } = useItemFilters();
 
   return useMutation({
     mutationFn: (request: ActionRequest) =>
       postJson(`/api/items/${encodeURIComponent(item.id)}/actions`, request, itemEnvelopeLooseSchema),
     onSuccess: (updated) => {
-      const cached = queryClient.getQueryData<{ items: ItemEnvelope[] }>([
-        ...itemKeys.lists(),
-        view,
-      ]);
+      const cached = queryClient.getQueryData<{ items: ItemEnvelope[] }>(
+        itemKeys.list(view as Status, filters),
+      );
       const next = updated.status === 'failed' ? undefined : neighbour(cached?.items, item.id);
       announce(outcomeMessage(updated, next));
       if (updated.status !== 'failed') {
         focusElement(next ? itemLinkId(next.id) : LIST_HEADING_ID);
-        void navigate(next ? `/${view}/${encodeURIComponent(next.id)}` : `/${view}`);
+        void navigate(`/${view}${next ? `/${encodeURIComponent(next.id)}` : ''}${search}`);
       }
     },
     onSettled: () =>

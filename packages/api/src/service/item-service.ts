@@ -5,6 +5,7 @@ import {
   type ActionRequest,
   type Item,
   type ItemCounts,
+  type ListItemsQuery,
   type Status,
 } from '@inbox/contracts';
 import type { EventPublisher } from '../events/event-publisher';
@@ -19,8 +20,8 @@ export class ItemService {
     private readonly events: EventPublisher,
   ) {}
 
-  async listItems(status: Status): Promise<Item[]> {
-    return orderForView(status, await this.repository.list({ status }));
+  async listItems(query: ListItemsQuery): Promise<Item[]> {
+    return orderForView(query.status, await this.repository.list(query));
   }
 
   /** Counts per status. Deliberately takes no filters (spec: counts ignore filters). */

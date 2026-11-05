@@ -27,9 +27,11 @@ export function itemRoutes(service: ItemService) {
             c,
             400,
             'Invalid query',
-            'status must be one of pending, processing, completed, failed',
+            query.error.issues
+              .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+              .join('; '),
           );
-        const body: ListItemsResponse = { items: await service.listItems(query.data.status) };
+        const body: ListItemsResponse = { items: await service.listItems(query.data) };
         return c.json(body);
       })
       .get('/:id', async (c) => {
