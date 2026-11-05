@@ -1,2 +1,8 @@
 .codemie
 docs/codemie
+node_modules
+dist
+coverage
+*.tsbuildinfo
+.env
+.env.local
