@@ -1,13 +1,12 @@
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { deploymentActionSchema, type DeploymentItem } from '@inbox/contracts';
 import { Button } from '@/shared/ui/button';
 import type { ActionFormProps } from './index';
+import { TextField } from './text-field';
 
 /** Approve, or request changes with a required comment. Validation uses the shared contract schema. */
 export function DeploymentActionForm({ disabled, onSubmit }: ActionFormProps<DeploymentItem>) {
-  const commentId = useId();
-  const errorId = `${commentId}-error`;
-  const commentRef = useRef<HTMLTextAreaElement>(null);
+  const commentRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [error, setError] = useState<string>();
 
   function requestChanges(event: FormEvent) {
@@ -27,25 +26,13 @@ export function DeploymentActionForm({ disabled, onSubmit }: ActionFormProps<Dep
 
   return (
     <form onSubmit={requestChanges} noValidate className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor={commentId} className="text-sm font-medium">
-          Comment <span className="text-muted-foreground font-normal">(required to request changes)</span>
-        </label>
-        <textarea
-          id={commentId}
-          ref={commentRef}
-          rows={3}
-          disabled={disabled}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-          className="rounded-md border p-2"
-        />
-        {error && (
-          <p id={errorId} className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-      </div>
+      <TextField
+        label="Comment"
+        hint="(required to request changes)"
+        disabled={disabled}
+        error={error}
+        ref={commentRef}
+      />
       <div className="flex gap-2">
         <Button type="button" disabled={disabled} onClick={() => onSubmit({ action: 'approve' })}>
           Approve

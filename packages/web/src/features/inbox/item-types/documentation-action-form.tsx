@@ -1,14 +1,13 @@
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { documentationActionSchema, type DocumentationItem } from '@inbox/contracts';
 import { Button } from '@/shared/ui/button';
 import type { ActionFormProps } from './index';
+import { TextField } from './text-field';
 
 /** Submit a link with an optional note. Validation uses the shared contract schema. */
 export function DocumentationActionForm({ disabled, onSubmit }: ActionFormProps<DocumentationItem>) {
-  const id = useId();
-  const errorId = `${id}-error`;
-  const linkRef = useRef<HTMLInputElement>(null);
-  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const linkRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const noteRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [error, setError] = useState<string>();
 
   function submit(event: FormEvent) {
@@ -29,32 +28,8 @@ export function DocumentationActionForm({ disabled, onSubmit }: ActionFormProps<
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor={`${id}-link`} className="text-sm font-medium">
-          Link <span className="text-muted-foreground font-normal">(required)</span>
-        </label>
-        <input
-          id={`${id}-link`}
-          ref={linkRef}
-          type="text"
-          inputMode="url"
-          disabled={disabled}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-          className="rounded-md border p-2"
-        />
-        {error && (
-          <p id={errorId} className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor={`${id}-note`} className="text-sm font-medium">
-          Note <span className="text-muted-foreground font-normal">(optional)</span>
-        </label>
-        <textarea id={`${id}-note`} ref={noteRef} rows={3} disabled={disabled} className="rounded-md border p-2" />
-      </div>
+      <TextField label="Link" hint="(required)" disabled={disabled} error={error} ref={linkRef} url />
+      <TextField label="Note" hint="(optional)" disabled={disabled} ref={noteRef} />
       <div>
         <Button type="submit" disabled={disabled}>
           Submit link

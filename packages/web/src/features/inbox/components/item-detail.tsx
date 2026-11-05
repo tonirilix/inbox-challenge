@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { itemSchema, type ActionRequest, type Item, type ItemEnvelope } from '@inbox/contracts';
 import { ApiError } from '@/shared/api/client';
 import { Button } from '@/shared/ui/button';
@@ -7,10 +7,12 @@ import { useItem } from '../hooks/use-items';
 import { useDelayedFlag } from '@/shared/a11y/use-delayed-flag';
 import { useSubmitAction } from '../hooks/use-submit-action';
 import { isKnownItemType, itemTypeLabel, itemTypeModules, type ActionFormProps } from '../item-types';
-import { DEFAULT_VIEW } from '../views';
+import { useCurrentView } from '../hooks/use-current-view';
+import { capitalize, formatDate } from '../utils/format';
+import { daysOverdue, overdueText } from '../utils/overdue';
 
 function BackToList() {
-  const { view = 'pending' } = useParams();
+  const view = useCurrentView();
   const { search } = useLocation();
   return (
     <Link to={`/${view}${search}`} className="text-sm underline">
@@ -29,6 +31,7 @@ function ItemFrame({
   busy?: boolean;
   children?: ReactNode;
 }) {
+  const overdue = daysOverdue(item);
   return (
     <section
       aria-labelledby="item-title"
@@ -48,11 +51,22 @@ function ItemFrame({
         <dt className="text-muted-foreground">Priority</dt>
         <dd>{item.priority}</dd>
         <dt className="text-muted-foreground">Status</dt>
-        <dd>{item.status}</dd>
+        <dd>{capitalize(item.status)}</dd>
+        {item.outcome && (
+          <>
+            <dt className="text-muted-foreground">Outcome</dt>
+            <dd>{capitalize(item.outcome)}</dd>
+          </>
+        )}
         {item.dueDate && (
           <>
             <dt className="text-muted-foreground">Due</dt>
-            <dd>{item.dueDate}</dd>
+            <dd>
+              {formatDate(item.dueDate)}
+              {overdue > 0 && (
+                <span className="text-destructive ml-2 font-medium">{overdueText(overdue)}</span>
+              )}
+            </dd>
           </>
         )}
       </dl>
@@ -75,7 +89,7 @@ function FailedPanel({
   const details = attempt ? Object.values(attempt.input).map(String).join('; ') : '';
   return (
     <div className="flex flex-col gap-3">
-      <div role="alert" className="border-destructive rounded-md border p-3">
+      <div className="border-destructive rounded-md border p-3">
         <p className="font-medium">This item failed: {item.failureReason}</p>
         {attempt && (
           <p className="text-sm">
@@ -98,7 +112,7 @@ function FailedPanel({
 
 /** Detail and, while pending, the action form of a known item type. */
 function KnownItemDetail({ item }: { item: Item }) {
-  const { view = DEFAULT_VIEW } = useParams();
+  const view = useCurrentView();
   const submit = useSubmitAction(item, view);
   // Busy appears only after a noticeable wait; the form is locked from the start.
   const busy = useDelayedFlag(submit.isPending);

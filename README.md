@@ -40,7 +40,7 @@ curl -X POST http://localhost:3001/api/items -H 'content-type: application/json'
 Payload per type:
 
 - `expense`: `{ "merchant": "Acme Travel", "category": "Travel", "amount": 120.5, "currency": "EUR" }`
-- `deployment`: `{ "service": "billing-api", "environment": "production", "version": "2.4.0" }` (`environment` is `production` or `staging`)
+- `deployment`: `{ "service": "billing-api", "environment": "production", "version": "2.4.0" }` (`environment` is `production` or `staging`; an optional `failsFirstApproval: true` makes the first approval fail, as the seeded `dep-1` does)
 - `documentation`: `{ "topic": "Onboarding flow", "audience": "New hires" }`
 
 `priority` is `urgent`, `high`, `normal` or `low`.
@@ -64,6 +64,8 @@ The list, views, filters, counts and the failure and retry flow need no changes.
 ## Known gaps
 
 - On narrow screens the sidebar keeps its fixed width and does not collapse; list and detail are separate pages as intended.
+- Changing a filter shows a loading message while the new results arrive, rather than keeping the old rows.
+- The action-form registry in `item-detail.tsx` still needs a type assertion (a type-to-module correlation TypeScript cannot express).
 - Colour contrast is covered by design tokens but not by the automated axe check, which cannot compute it in jsdom.
 
 ## Iteration 2

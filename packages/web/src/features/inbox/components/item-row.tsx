@@ -1,21 +1,16 @@
 import { Link, useLocation, useParams } from 'react-router';
 import type { ItemEnvelope } from '@inbox/contracts';
 import { cn } from '@/shared/lib/cn';
+import { useCurrentView } from '../hooks/use-current-view';
 import { itemTypeLabel } from '../item-types';
 import { itemLinkId } from '../utils/focus';
+import { capitalize, formatDate } from '../utils/format';
 import { daysOverdue, overdueText } from '../utils/overdue';
 import { PriorityLabel } from './priority-label';
 
-const formatDate = (isoDate: string) =>
-  new Date(isoDate).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-
 export function ItemRow({ item }: { item: ItemEnvelope }) {
-  const { view = 'pending', itemId } = useParams();
+  const view = useCurrentView();
+  const { itemId } = useParams();
   const { search } = useLocation();
   const selected = itemId === item.id;
   const overdue = daysOverdue(item);
@@ -36,6 +31,8 @@ export function ItemRow({ item }: { item: ItemEnvelope }) {
           <span>{itemTypeLabel(item.type)}</span>
           <span>{item.requester}</span>
           <PriorityLabel priority={item.priority} />
+          <span>{capitalize(item.status)}</span>
+          {item.outcome && <span>{capitalize(item.outcome)}</span>}
           {item.dueDate && <span>Due {formatDate(item.dueDate)}</span>}
           {overdue > 0 && (
             <span className="text-destructive font-medium">{overdueText(overdue)}</span>

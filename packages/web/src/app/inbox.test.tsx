@@ -149,6 +149,30 @@ describe('inbox', () => {
     expect(notDue).not.toHaveTextContent('overdue');
   });
 
+  it('shows status and outcome as text in the row and the detail, with a readable due date', async () => {
+    const done = expenseItem({
+      id: 'c',
+      title: 'Done one',
+      status: 'completed',
+      outcome: 'rejected',
+      dueDate: '2026-01-05',
+    });
+    fakeApi({
+      '/api/items/counts': counts,
+      '/api/items?status=completed': () => ({ items: [done] }),
+      '/api/items/c': () => done,
+    });
+    renderApp('/completed/c');
+
+    const row = within(await screen.findByRole('list', { name: 'Items' })).getByRole('listitem');
+    expect(row).toHaveTextContent('Completed');
+    expect(row).toHaveTextContent('Rejected');
+    const detail = await screen.findByRole('region', { name: 'Done one' });
+    expect(detail).toHaveTextContent('Outcome');
+    expect(detail).toHaveTextContent('Rejected');
+    expect(detail).toHaveTextContent('5 Jan 2026');
+  });
+
   it('sends unknown views to Pending', async () => {
     fakeApi({
       '/api/items/counts': counts,
@@ -372,13 +396,13 @@ describe('inbox', () => {
       });
     }
 
-    it('shows the reason and last attempt in an alert with Retry and Dismiss', async () => {
+    it('shows the reason and last attempt with Retry and Dismiss', async () => {
       serverWithRecovery({ ...failed, status: 'completed', outcome: 'approved' });
       renderApp('/failed/exp-1');
 
-      const alert = await screen.findByRole('alert');
-      expect(alert).toHaveTextContent('The accounting system did not respond.');
-      expect(alert).toHaveTextContent(/Last attempt: approve/);
+      expect(await screen.findByText(/The accounting system did not respond\./)).toBeInTheDocument();
+      expect(screen.getByText(/Last attempt: approve/)).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
       expect(screen.getByRole('button', { name: 'Dismiss' })).toBeEnabled();
       expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();

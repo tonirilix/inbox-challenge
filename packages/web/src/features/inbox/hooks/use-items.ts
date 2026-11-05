@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   countsResponseSchema,
   itemEnvelopeLooseSchema,
@@ -27,8 +27,6 @@ export function useItems(status: Status, filters: ItemFilters = {}) {
   return useQuery({
     queryKey: itemKeys.list(status, filters),
     queryFn: () => getJson(`/api/items?${query}`, listItemEnvelopesResponseSchema),
-    // Keep the old rows on screen while a changed filter loads.
-    placeholderData: keepPreviousData,
     select: (data) => data.items,
   });
 }

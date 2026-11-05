@@ -37,7 +37,7 @@ describe('filters', () => {
     });
     const { router, container } = renderApp('/pending');
     await screen.findByRole('list', { name: 'Items' });
-    expect(screen.getByRole('status', { name: 'Results' })).toHaveTextContent('2 items');
+    expect(screen.getByText('2 items')).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText('Priority'), 'urgent');
 
@@ -48,7 +48,8 @@ describe('filters', () => {
     await user.type(screen.getByLabelText('Search'), 'zzz');
 
     expect(await screen.findByText('No items match your filters.')).toBeInTheDocument();
-    expect(screen.getByRole('status', { name: 'Results' })).toHaveTextContent('0 items');
+    expect(screen.getByText('0 items')).toBeInTheDocument();
+    expect(await screen.findByText('0 items', { selector: '.sr-only' })).toBeInTheDocument();
     expect(router.state.location.search).toBe('?priority=urgent&q=zzz');
     expect(fetchSpy).toHaveBeenCalledWith('/api/items?status=pending&priority=urgent&q=zzz');
     expect(
