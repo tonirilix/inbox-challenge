@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Contracts define the item envelope and the expense item type with Zod; API and web both import types from them
 - [ ] The API has routes, service and repository layers with an in-memory repository, wired in one composition root, and serves a list of items
