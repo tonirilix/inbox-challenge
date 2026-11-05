@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The API returns one item by id, and responds 404 as Problem Details for an unknown id
 - [ ] Selecting an item navigates to its URL; opening the URL directly shows the same split view
