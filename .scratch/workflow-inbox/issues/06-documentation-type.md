@@ -4,7 +4,7 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The documentation type exists across contracts, executor and web, registered in the same typed maps
 - [ ] Submitting a valid link with an optional note completes the item with outcome done

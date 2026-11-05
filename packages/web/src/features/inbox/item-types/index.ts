@@ -2,6 +2,8 @@ import type { ComponentType } from 'react';
 import type { ActionRequest, Item, ItemType } from '@inbox/contracts';
 import { DeploymentActionForm } from './deployment-action-form';
 import { DeploymentDetail } from './deployment-detail';
+import { DocumentationActionForm } from './documentation-action-form';
+import { DocumentationDetail } from './documentation-detail';
 import { ExpenseActionForm } from './expense-action-form';
 import { ExpenseDetail } from './expense-detail';
 
@@ -32,6 +34,11 @@ export const itemTypeModules: { [K in ItemType]: ItemTypeModule<Extract<Item, { 
     label: 'Deployment',
     Detail: DeploymentDetail,
     ActionForm: DeploymentActionForm,
+  },
+  documentation: {
+    label: 'Documentation',
+    Detail: DocumentationDetail,
+    ActionForm: DocumentationActionForm,
   },
 };
 

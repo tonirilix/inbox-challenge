@@ -278,3 +278,48 @@ describe('POST /api/items/:id/actions', () => {
     );
   });
 });
+
+describe('POST /api/items/:id/actions on a documentation item', () => {
+  const documentation = (): Item => ({
+    ...expense({ id: 'd1' }),
+    type: 'documentation',
+    payload: { topic: 'Onboarding guide', audience: 'New hires' },
+  } as Item);
+
+  it('completes with outcome done when given a link and an optional note', async () => {
+    const { act } = setup([documentation()]);
+
+    const response = await act('d1', {
+      action: 'submit',
+      input: { link: 'https://docs.example.com/guide', note: 'Draft v2' },
+    });
+
+    expect(response.status).toBe(200);
+    expect(itemSchema.parse(await response.json())).toMatchObject({
+      status: 'completed',
+      outcome: 'done',
+      lastAttempt: {
+        action: 'submit',
+        input: { link: 'https://docs.example.com/guide', note: 'Draft v2' },
+      },
+    });
+  });
+
+  it('accepts a link without a note', async () => {
+    const { act } = setup([documentation()]);
+    const response = await act('d1', { action: 'submit', input: { link: 'https://a.example/x' } });
+    expect(response.status).toBe(200);
+  });
+
+  it.each([
+    ['a missing link', { action: 'submit' }],
+    ['a blank link', { action: 'submit', input: { link: ' ' } }],
+    ['a malformed link', { action: 'submit', input: { link: 'not a url' } }],
+    ['a non-http link', { action: 'submit', input: { link: 'javascript:alert(1)' } }],
+    ['an expense action', { action: 'approve' }],
+  ])('rejects %s with 400', async (_name, body) => {
+    const { act, app } = setup([documentation()]);
+    expect((await act('d1', body)).status).toBe(400);
+    expect(await (await app.request('/api/items/d1')).json()).toMatchObject({ status: 'pending' });
+  });
+});

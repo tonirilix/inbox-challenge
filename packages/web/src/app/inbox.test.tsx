@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { axe } from 'vitest-axe';
 import { describe, expect, it } from 'vitest';
-import { deploymentItem, expenseItem } from '@/test/fixtures';
+import { deploymentItem, documentationItem, expenseItem } from '@/test/fixtures';
 import { fakeApi } from '@/test/fake-api';
 import { Providers } from './providers';
 import { appRoutes } from './routes';
@@ -458,6 +458,51 @@ describe('inbox', () => {
         action: 'request_changes',
         input: { comment: 'Add a rollback plan' },
       });
+  });
+
+    });
+  describe('completing a documentation item', () => {
+    const doc = documentationItem();
+
+    function server() {
+      return fakeApi({
+        '/api/items/counts': counts,
+        '/api/items?status=pending': () => ({ items: [doc] }),
+        '/api/items/doc-1': () => doc,
+        '/api/items/doc-1/actions': () => ({ ...doc, status: 'completed', outcome: 'done' }),
+      });
+    }
+    const posted = (fetchSpy: ReturnType<typeof server>) =>
+      fetchSpy.mock.calls.find(([url]) => String(url).endsWith('/actions'));
+
+    it('shows the payload and submits a link with a note', async () => {
+      const fetchSpy = server();
+      renderApp('/pending/doc-1');
+
+      expect(await screen.findByText('Onboarding flow')).toBeInTheDocument();
+      await userEvent.type(screen.getByRole('textbox', { name: /Link/ }), 'https://docs.example.com/a');
+      await userEvent.type(screen.getByRole('textbox', { name: /Note/ }), 'Draft');
+      await userEvent.click(screen.getByRole('button', { name: 'Submit link' }));
+
+      expect(await screen.findByText(/^Done “Document the onboarding flow”/)).toBeInTheDocument();
+      expect(JSON.parse(String(posted(fetchSpy)?.[1]?.body))).toEqual({
+        action: 'submit',
+        input: { link: 'https://docs.example.com/a', note: 'Draft' },
+      });
+    });
+
+    it('explains a malformed link next to the field and does not submit', async () => {
+      const fetchSpy = server();
+      renderApp('/pending/doc-1');
+
+      await userEvent.type(await screen.findByRole('textbox', { name: /Link/ }), 'nope');
+      await userEvent.click(screen.getByRole('button', { name: 'Submit link' }));
+
+      const link = screen.getByRole('textbox', { name: /Link/ });
+      expect(link).toBeInvalid();
+      expect(link).toHaveFocus();
+      expect(link).toHaveAccessibleDescription(/valid link/);
+      expect(posted(fetchSpy)).toBeUndefined();
     });
   });
 });
