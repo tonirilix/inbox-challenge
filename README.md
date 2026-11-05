@@ -2,7 +2,54 @@
 
 An internal inbox where people review and act on pending work raised by other systems: approve expenses, review deployments, submit documentation. Items are listed by what to do next, handled in a split view, and failed actions can be retried or dismissed.
 
-Run it with `pnpm install && pnpm dev`: the API is at http://localhost:3001 and the web app at http://localhost:5173. Checks: `pnpm test`, `pnpm typecheck`, `pnpm lint`.
+## How to run
+
+Needs Node 24+ and pnpm.
+
+```sh
+pnpm install
+pnpm dev        # API on http://localhost:3001, web on http://localhost:5173
+```
+
+Checks: `pnpm test`, `pnpm typecheck`, `pnpm lint`. `PORT` changes the API port.
+
+Data is in memory and reseeded on every start. The seed includes a production deployment (`dep-1`) whose first approval fails, so you can try Failed, Retry and Dismiss: open it, approve it, then go to the Failed view.
+
+## Assumptions
+
+- A single user; there is no login and no "current user", so nothing records who handled an item.
+- The requester sets an item's priority and due date. Users cannot change them.
+- An action either finishes within one request or fails. Nothing runs in the background.
+- Only the last attempt on an item matters, so there is no attempt history.
+- Completed items are final. There is no reopen or undo.
+- Item types are known at build time. Adding one is a code change.
+- A few dozen items, so no pagination.
+
+## Tradeoffs
+
+- **In-memory repository** behind an interface: nothing to set up, but data is lost on restart. Swapping in a database should only touch the repository.
+- **Inline execution** behind a port: simple and testable, but a slow action holds the request. The port is there so it can become async later.
+- **Item types as code, not configuration**: type-safe and cheap to add, but a new type needs a deploy. We rejected a schema-driven form builder as too much for this scope.
+- **Refetch on window focus instead of realtime**: stale for a short while, but no transport to run. Events are already published through a port for when it is added.
+- **Failed action returns 200**, because the request succeeded and the item changed state ([ADR 0003](docs/adr/0003-failed-action-is-200.md)). Clients must read the item's status.
+- **Nothing is optimistic**: an item moves only when the server answers. A little slower, but the list never shows something that did not happen.
+- **No end-to-end browser tests**: component and API tests cover the flows, with axe for accessibility. Real keyboard and screen reader behaviour is not automated.
+- **Contracts shared as TypeScript source** with no build step: simple, but the packages are not publishable on their own.
+
+## If I had another day
+
+In rough priority order (the full list is under [Iteration 2](#iteration-2)):
+
+1. Realtime updates with a "N new items" banner, using the event port already in place.
+2. Optimistic concurrency (ETag / If-Match) so two people cannot overwrite each other.
+3. A current user, so decisions are attributed.
+4. Playwright tests for the main flows, including keyboard use.
+5. Make the sidebar collapse on small screens and check colour contrast automatically.
+6. A database-backed repository.
+
+## Docs
+
+[ARCHITECTURE.md](ARCHITECTURE.md) explains how the code is organised and the state machine. [CLAUDE.md](CLAUDE.md) points AI agents to the same docs in a table. We plan to add principles and code patterns there as the project grows.
 
 Vocabulary is in [GLOSSARY.md](GLOSSARY.md). Decisions are recorded in [docs/adr](docs/adr):
 
@@ -12,7 +59,7 @@ Vocabulary is in [GLOSSARY.md](GLOSSARY.md). Decisions are recorded in [docs/adr
 
 ## Architecture
 
-A pnpm workspace with three packages:
+Short version; the full one is in [ARCHITECTURE.md](ARCHITECTURE.md). A pnpm workspace with three packages:
 
 - `packages/contracts`: Zod schemas shared by both sides (items, actions, queries, events, problem details). The single source of truth for types and validation.
 - `packages/api`: Hono server. `routes` validate input and map domain errors to Problem Details responses, `service` owns the business rules and the state machine, `repository` is an interface with an in-memory implementation. Execution and events go through two ports, `Executor` (inline in v1) and `EventPublisher` (in-process, no subscribers). Everything is wired in `composition-root.ts`.
