@@ -4,7 +4,7 @@
 
 **Blocked by:** 05, 06, 07, 08
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The README explains how to run the project, the architecture and the import boundaries, and links the glossary and ADRs
 - [ ] The README has a short, accurate guide to adding an item type (contract, executor, web module)
