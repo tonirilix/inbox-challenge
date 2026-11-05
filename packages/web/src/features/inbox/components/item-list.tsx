@@ -38,7 +38,7 @@ export function ItemList({ status }: { status: Status }) {
 
   return (
     <>
-      <p className="text-muted-foreground mb-2 text-sm">{countText(items.length)}</p>
+      <p className="text-muted-foreground mb-2 h-5 text-sm">{countText(items.length)}</p>
       {items.length === 0 ? (
         <div className="flex flex-col items-start gap-3 rounded-md border p-4">
           <p>{active ? 'No items match your filters.' : 'No items in this view.'}</p>

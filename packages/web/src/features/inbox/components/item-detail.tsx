@@ -11,11 +11,11 @@ import { useCurrentView } from '../hooks/use-current-view';
 import { capitalize, formatDate } from '../utils/format';
 import { daysOverdue, overdueText } from '../utils/overdue';
 
-function BackToList() {
+function BackToList({ className = '' }: { className?: string }) {
   const view = useCurrentView();
   const { search } = useLocation();
   return (
-    <Link to={`/${view}${search}`} className="text-sm underline">
+    <Link to={`/${view}${search}`} className={`text-sm underline ${className}`}>
       Back to list
     </Link>
   );
@@ -38,7 +38,8 @@ function ItemFrame({
       aria-busy={busy}
       className="flex flex-col gap-4 rounded-md border p-4"
     >
-      <BackToList />
+      {/* Only needed when list and detail are separate pages (below md). */}
+      <BackToList className="md:hidden" />
       <div>
         <h2 id="item-title" className="text-lg font-semibold">
           {item.title}

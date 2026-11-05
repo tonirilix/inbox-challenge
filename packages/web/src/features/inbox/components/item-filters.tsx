@@ -12,7 +12,7 @@ export function ItemFilters() {
 
   return (
     <form role="search" aria-label="Filter items" onSubmit={(e) => e.preventDefault()}>
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="mb-4 flex flex-wrap items-start gap-3">
         <div className="flex flex-col gap-1">
           <label htmlFor="filter-search" className="text-sm font-medium">
             Search

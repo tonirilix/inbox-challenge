@@ -32,7 +32,8 @@ export function InboxPage() {
           <div className={itemId ? 'hidden md:block' : undefined}>
             <ItemList status={view.slug} />
           </div>
-          <div className={itemId ? undefined : 'hidden md:block'}>
+          {/* md:mt-7 = the list's count line (h-5 + mb-2), so the detail lines up with the first row. */}
+          <div className={itemId ? 'md:mt-7' : 'hidden md:mt-7 md:block'}>
             {itemId ? (
               <ItemDetail key={itemId} itemId={itemId} />
             ) : (
