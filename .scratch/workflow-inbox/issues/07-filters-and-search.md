@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The list endpoint accepts type, priority and search filters that combine with AND; search matches title and requester
 - [ ] Filters are always visible, individually labelled controls and are reflected in the URL query, so a shared link restores them
